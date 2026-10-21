@@ -44,7 +44,7 @@ export const TOUR_3: Tour = {
       id: 't3-06', name: 'Doble pòquer', seed: 306,
       limit: { kind: 'moves', moves: 12 }, board: { rows: 5, cols: 5 },
       deck: { jokersPerShoe: 5 },
-      goals: [{ type: 'handAtLeast', min: 'quads', count: 2 }], stars: [9500, 10500],
+      goals: [{ type: 'handAtLeast', min: 'quads', count: 2 }], stars: [30000, 50000],
       intro: 'Fes 2 pòquers o millor.',
     },
     {
