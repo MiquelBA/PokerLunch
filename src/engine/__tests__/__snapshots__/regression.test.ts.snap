@@ -7,8 +7,8 @@ exports[`regression: Classic (time mode, default rules) > seed 1 1`] = `
 4H KC* 8S* TH 6H
 4H KD* 7H QH 3C
 QD AH QC 9S* JH*",
-  "digest": "9c4e66d3b53c1d0b",
-  "events": 379,
+  "digest": "0353a185bdf43a9b",
+  "events": 378,
   "handCounts": {
     "fiveKind": 0,
     "flush": 10,
@@ -33,8 +33,8 @@ exports[`regression: Classic (time mode, default rules) > seed 7 1`] = `
 8D 4D AC TH 9C
 JC 6H KC 2H* QH
 KD KS QS 5S 6D",
-  "digest": "384686409d6c37ef",
-  "events": 379,
+  "digest": "7c871aa468911fed",
+  "events": 377,
   "handCounts": {
     "fiveKind": 0,
     "flush": 9,
@@ -59,8 +59,8 @@ exports[`regression: Classic (time mode, default rules) > seed 42 1`] = `
 7H QC TD JC 6S
 3C 3S 2D 3H 2D
 9H* KD AH 4H 6H",
-  "digest": "2d8e58220eed7981",
-  "events": 381,
+  "digest": "c8375142f1dd5ce9",
+  "events": 380,
   "handCounts": {
     "fiveKind": 0,
     "flush": 4,
@@ -137,7 +137,7 @@ AC 4D TS AC 7S
 TS 5S QH 5C 3D
 KS AH 8H 8S KD
 6D 4C 3S 5S* TD",
-  "digest": "2d3cdb34bc2400a0",
+  "digest": "7485cdf1bb57afb4",
   "events": 374,
   "handCounts": {
     "fiveKind": 0,

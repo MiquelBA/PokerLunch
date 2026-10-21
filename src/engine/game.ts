@@ -418,18 +418,18 @@ export function applyMove(state: GameState, move: Move): MoveResult {
     powerEvent(gilded);
   }
 
-  // Time bonus, capped per game.
+  // Time bonuses, the hand's and the time power's, share one cap per game: uncapped, a fast player
+  // could gain more time than they spend (the clock stops while a move plays) and never finish.
   let { timeLimitMs, timeBonusMs } = state;
-  if (config.mode === 'time' && def.timeBonusMs > 0 && timeBonusMs < config.maxTimeBonusMs) {
-    const ms = Math.min(def.timeBonusMs, config.maxTimeBonusMs - timeBonusMs);
+  const addTime = (wanted: number) => {
+    const ms = Math.min(wanted, config.maxTimeBonusMs - timeBonusMs);
+    if (config.mode !== 'time' || ms <= 0) return;
     timeBonusMs += ms;
     timeLimitMs += ms;
     events.push({ type: 'timeBonus', ms, timeLimitMs });
-  }
-  if (power === 'time' && config.mode === 'time') {
-    timeLimitMs += config.powerTimeMs;
-    events.push({ type: 'timeBonus', ms: config.powerTimeMs, timeLimitMs });
-  }
+  };
+  if (def.timeBonusMs > 0) addTime(def.timeBonusMs);
+  if (power === 'time') addTime(config.powerTimeMs);
 
   const total = points + blastPoints;
   const handCounts = { ...state.handCounts, [hand]: state.handCounts[hand] + 1 };

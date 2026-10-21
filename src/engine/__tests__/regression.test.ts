@@ -48,3 +48,21 @@ describe('regression: moves mode (simulator)', () => {
     expect(playRecorded(1000, makeConfig({ mode: 'moves', maxMoves: 30 }), 40)).toMatchSnapshot();
   });
 });
+
+describe('time bonuses', () => {
+  it('stay within the cap, time power included, even for a player who farms it', () => {
+    let s = newGame({ seed: 1, config: DEFAULT_CONFIG });
+    while (!s.gameOver && s.moves < 400) {
+      s = tick(s, 900).state;
+      if (s.gameOver) break;
+      const hands = findHands(s.board, s.config, 200, s.tokens);
+      const fresh = hands.filter((h) => !s.variety.includes(h.hand));
+      const pick = (s.variety.length === 2 && fresh.find((h) => h.hand === 'twoPair')) || fresh[0] || hands[0];
+      if (!pick) { s = tick(s, 500).state; continue; }
+      const r = applyMove(s, { path: pick.path, atMs: s.elapsedMs });
+      s = r.events.length ? r.state : tick(s, 500).state;
+    }
+    expect(s.gameOver).toBe(true);
+    expect(s.timeLimitMs).toBeLessThanOrEqual(DEFAULT_CONFIG.durationMs + DEFAULT_CONFIG.maxTimeBonusMs);
+  });
+});
