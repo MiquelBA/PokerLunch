@@ -61,8 +61,10 @@ export function App() {
 
   const onOver = useCallback((s: GameState) => {
     if (modeRef.current === 'tour') {
-      // The Tour keeps its own records (stars and best score per level) and sends no stats.
+      // The Tour keeps its own records (stars and best score per level); the stats only say how
+      // far players get: which level, won or lost, with how many stars (no ranking).
       const run = tourRunRef.current;
+      if (run) track('game_end', s.score, { mode: 'tour', level: run.level.id, won: run.status === 'won', stars: run.stars, moves: s.moves });
       if (run?.status === 'won') {
         setTourProgress((p) => {
           const next = recordResult(p, run.level.id, run.stars, run.game.score);
@@ -166,6 +168,7 @@ export function App() {
     modeRef.current = 'tour';
     setMode('tour');
     game.setDriver(tourDriver(level));
+    track('game_start', undefined, { mode: 'tour', level: level.id });
     game.start(level.seed);
   };
 
