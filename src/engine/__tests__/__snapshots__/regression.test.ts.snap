@@ -1,0 +1,209 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`regression: Classic (time mode, default rules) > seed 1 1`] = `
+{
+  "board": "6C 8H KD 7D 9C
+3H 6H 6S KH* 8C
+4H KC* 8S* TH 6H
+4H KD* 7H QH 3C
+QD AH QC 9S* JH*",
+  "digest": "9c4e66d3b53c1d0b",
+  "events": 379,
+  "handCounts": {
+    "fiveKind": 0,
+    "flush": 10,
+    "fullHouse": 9,
+    "quads": 0,
+    "royalFlush": 0,
+    "straight": 9,
+    "straightFlush": 0,
+    "trips": 0,
+    "twoPair": 12,
+  },
+  "moves": 40,
+  "score": 48096,
+  "shuffles": 0,
+}
+`;
+
+exports[`regression: Classic (time mode, default rules) > seed 7 1`] = `
+{
+  "board": "8D 7S 2D* JD 7S
+7C 6D 9H JH 4C
+8D 4D AC TH 9C
+JC 6H KC 2H* QH
+KD KS QS 5S 6D",
+  "digest": "384686409d6c37ef",
+  "events": 379,
+  "handCounts": {
+    "fiveKind": 0,
+    "flush": 9,
+    "fullHouse": 13,
+    "quads": 0,
+    "royalFlush": 0,
+    "straight": 9,
+    "straightFlush": 0,
+    "trips": 1,
+    "twoPair": 8,
+  },
+  "moves": 40,
+  "score": 51653,
+  "shuffles": 0,
+}
+`;
+
+exports[`regression: Classic (time mode, default rules) > seed 42 1`] = `
+{
+  "board": "8D QS TD 7S 2H
+4S 3C 9S 8S 7C
+7H QC TD JC 6S
+3C 3S 2D 3H 2D
+9H* KD AH 4H 6H",
+  "digest": "2d8e58220eed7981",
+  "events": 381,
+  "handCounts": {
+    "fiveKind": 0,
+    "flush": 4,
+    "fullHouse": 10,
+    "quads": 0,
+    "royalFlush": 0,
+    "straight": 15,
+    "straightFlush": 0,
+    "trips": 0,
+    "twoPair": 11,
+  },
+  "moves": 40,
+  "score": 51072,
+  "shuffles": 0,
+}
+`;
+
+exports[`regression: Classic (time mode, default rules) > seed 1234 1`] = `
+{
+  "board": "8D 3H JC 6C 2H
+5S 5D TD QS TS
+5S 5D 4S JD JC
+JH 8D 8S 7H 3S
+3H 7D 8D 2D* 6D",
+  "digest": "fc80f33fa2449e93",
+  "events": 394,
+  "handCounts": {
+    "fiveKind": 0,
+    "flush": 3,
+    "fullHouse": 7,
+    "quads": 0,
+    "royalFlush": 0,
+    "straight": 15,
+    "straightFlush": 0,
+    "trips": 1,
+    "twoPair": 14,
+  },
+  "moves": 40,
+  "score": 38557,
+  "shuffles": 0,
+}
+`;
+
+exports[`regression: Classic (time mode, default rules) > seed 99999 1`] = `
+{
+  "board": "KC 9H QS 7S TC
+7C 7C JS 6S 5H
+9H 3C KC 9D KH
+9H 6H QD 2H 8D
+QC KC AC KH 9C",
+  "digest": "08edf701c5c4088d",
+  "events": 392,
+  "handCounts": {
+    "fiveKind": 0,
+    "flush": 8,
+    "fullHouse": 7,
+    "quads": 1,
+    "royalFlush": 0,
+    "straight": 8,
+    "straightFlush": 0,
+    "trips": 2,
+    "twoPair": 14,
+  },
+  "moves": 40,
+  "score": 40656,
+  "shuffles": 0,
+}
+`;
+
+exports[`regression: Daily challenge seeds > seed 377260263 1`] = `
+{
+  "board": "JK 7C TH 4H 9C
+AC 4D TS AC 7S
+TS 5S QH 5C 3D
+KS AH 8H 8S KD
+6D 4C 3S 5S* TD",
+  "digest": "2d3cdb34bc2400a0",
+  "events": 374,
+  "handCounts": {
+    "fiveKind": 0,
+    "flush": 8,
+    "fullHouse": 6,
+    "quads": 0,
+    "royalFlush": 0,
+    "straight": 11,
+    "straightFlush": 0,
+    "trips": 2,
+    "twoPair": 13,
+  },
+  "moves": 40,
+  "score": 41526,
+  "shuffles": 0,
+}
+`;
+
+exports[`regression: Daily challenge seeds > seed 1290413839 1`] = `
+{
+  "board": "TC JC KH 2H 3C
+2S 4D 3H QC QC
+3H JD TS 7C 6H
+KH TD 8C KC AH
+JH 2H QD 7D 2S",
+  "digest": "0d33f582e488e9d0",
+  "events": 384,
+  "handCounts": {
+    "fiveKind": 0,
+    "flush": 8,
+    "fullHouse": 5,
+    "quads": 0,
+    "royalFlush": 0,
+    "straight": 14,
+    "straightFlush": 0,
+    "trips": 0,
+    "twoPair": 13,
+  },
+  "moves": 40,
+  "score": 40345,
+  "shuffles": 0,
+}
+`;
+
+exports[`regression: moves mode (simulator) > seed 1000 1`] = `
+{
+  "board": "7C 7S QC 7D QH
+QC TD 7C KD 9H
+KS 6D AC 6C 3D
+9C 3H 2S 6H QC
+9D 3H KS QS 2C",
+  "digest": "80babcc3388af564",
+  "events": 266,
+  "handCounts": {
+    "fiveKind": 0,
+    "flush": 8,
+    "fullHouse": 8,
+    "quads": 0,
+    "royalFlush": 0,
+    "straight": 6,
+    "straightFlush": 0,
+    "trips": 1,
+    "twoPair": 7,
+  },
+  "moves": 30,
+  "score": 20654,
+  "shuffles": 0,
+}
+`;
