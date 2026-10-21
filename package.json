@@ -9,6 +9,7 @@
     "test": "vitest run",
     "typecheck": "tsc -b",
     "sim": "tsx src/sim/cli.ts",
+    "sim:tour": "tsx src/sim/tour.ts",
     "artifact": "node scripts/inline.mjs"
   },
   "dependencies": {
