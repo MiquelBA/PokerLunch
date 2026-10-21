@@ -466,6 +466,37 @@ export function applyMove(state: GameState, move: Move): MoveResult {
   return { state: next, events };
 }
 
+/**
+ * Sets off a bomb on a card that wasn't one (Poker Rush): the card and the 3×3 around it go, chaining
+ * through other bombs, then the board falls and refills as after a hand. Not a move: `moves` stays.
+ */
+export function detonate(state: GameState, pos: Pos): MoveResult {
+  const card = cellAt(state.board, pos);
+  if (state.gameOver || !isPlayable(card)) return { state, events: [] };
+  const config = state.config;
+  const events: GameEvent[] = [];
+  const armed = mutableCopy(state.board);
+  armed[pos.row][pos.col] = { ...card, bomb: true };
+  const hits = new Map<string, number>();
+  const hit = (p: Pos) => hits.set(`${p.row},${p.col}`, (hits.get(`${p.row},${p.col}`) ?? 0) + 1);
+  const cleared = [pos];
+  const points = config.blastPointsPerCard + explodeBombs(armed, cleared, hit, 1, config, events);
+  const board = mutableCopy(state.board);
+  for (const p of cleared) board[p.row][p.col] = null;
+  applyHits(board, hits, events);
+  const d = dealerOf(state);
+  events.push({ type: 'fall', falls: applyGravity(board) });
+  for (const p of emptyCells(board)) {
+    const fresh = deal(d, config);
+    board[p.row][p.col] = fresh;
+    events.push({ type: 'spawn', card: fresh, pos: p });
+  }
+  let next: GameState = { ...state, rngState: d.rng, shoe: d.shoe, queue: d.queue, nextId: d.nextId, board, score: state.score + points };
+  next = ensurePlayable(next, events).state;
+  events.push({ type: 'moveEnd', points });
+  return { state: next, events };
+}
+
 /** Shuffles the board while it has fewer than minValidMoves hands; deals a new one if that fails. */
 function ensurePlayable(state: GameState, events: GameEvent[]): { state: GameState } {
   const config = state.config;
@@ -503,6 +534,11 @@ function ensurePlayable(state: GameState, events: GameEvent[]): { state: GameSta
       return { state: { ...state, board, rngState: d.rng, shoe: d.shoe, queue: d.queue, nextId: d.nextId, shuffles: state.shuffles + 1 } };
     }
   }
+}
+
+/** The board after a level's layout is placed (Poker Tour): shuffled if it has too few hands. */
+export function makePlayable(state: GameState): GameState {
+  return ensurePlayable(state, []).state;
 }
 
 /** Advances the game clock (time mode). The game ends when time runs out. */
