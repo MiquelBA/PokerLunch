@@ -17,16 +17,37 @@ export function CardSprite() {
 }
 
 export const CardFace = memo(function CardFace({ card, className = '' }: { card: CardSpec; className?: string }) {
+  // Poker Tour: a block is a stack of casino chips, not a card.
+  if (card.block) {
+    return (
+      <div className={`block-cell hp-${card.block} ${className}`} role="img" aria-label={card.block > 1 ? 'Bloc de pedra' : 'Bloc'}>
+        <i /><i /><i />
+      </div>
+    );
+  }
   const id = card.joker ? 'pl-joker' : `pl-${card.suit}-${card.rank}`;
-  const label = card.joker ? 'Joker' : `${rankLabel(card.rank)}${SUIT_SYMBOLS[card.suit]}`;
+  const label = `${card.joker ? 'Joker' : `${rankLabel(card.rank)}${SUIT_SYMBOLS[card.suit]}`}${card.ice ? ' (glaçada)' : ''}${card.bomb ? ' (bomba)' : ''}`;
   return (
     <div className={`card ${card.golden ? 'golden' : ''} ${card.joker ? 'joker' : ''} ${className}`} role="img" aria-label={label}>
       <svg>
         <use href={`#${id}`} width="100%" height="100%" />
       </svg>
+      {card.bomb && <span className="bomb-badge" aria-hidden="true"><BombIcon /></span>}
+      {card.ice ? <span className={`ice ice-${card.ice}`} aria-hidden="true" /> : null}
     </div>
   );
 });
+
+function BombIcon() {
+  return (
+    <svg viewBox="0 0 24 24">
+      <circle cx="10.5" cy="14" r="7.5" fill="#1B1B22" stroke="#FFD54A" strokeWidth="1.4" />
+      <circle cx="8" cy="11.5" r="2" fill="#FFFFFF" opacity="0.5" />
+      <path d="M15.5 8.5 18 6" stroke="#B07A2A" strokeWidth="2" strokeLinecap="round" />
+      <path d="M19 2.5v2M21.5 5h-2M20.8 2.8l-1.3 1.3" stroke="#FF9A3C" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
 
 /** A small suit icon (help sheet, card back). */
 export function SuitIcon({ suit }: { suit: number }) {

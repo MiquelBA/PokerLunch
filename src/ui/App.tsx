@@ -19,8 +19,16 @@ import { Leaderboard } from '../leaderboard/Leaderboard';
 import { sendFeedback, track } from '../leaderboard/track';
 import { installMode, onInstallChange, promptInstall } from './install';
 import { shareText } from './share';
+import { TOURS } from '../engine/tour/levels';
+import { allLevels, isUnlocked, recordResult } from '../engine/tour/progress';
+import { playRun, startRun, tickRun, type TourRun } from '../engine/tour/run';
+import type { Level } from '../engine/tour/schema';
+import { loadTourProgress, saveTourProgress } from './tour/progressStore';
+import { TOUR_STRINGS } from './tour/strings';
+import { GoalsBar, LevelIntro, levelNumber, TourMap, TourResult } from './tour/TourUI';
+import type { GameDriver } from './useGame';
 
-type Mode = 'free' | 'daily' | 'practice';
+type Mode = 'free' | 'daily' | 'practice' | 'tour';
 
 interface Trace {
   readonly length: number;
@@ -42,9 +50,36 @@ export function App() {
   const [sheet, setSheet] = useState<'help' | 'ranking' | 'feedback' | 'install' | null>(null);
   const [trace, setTrace] = useState<Trace>({ length: 0, status: null, hand: null, points: 0 });
   const modeRef = useRef<Mode>('free');
+  // Poker Tour: the map, the level picked, the run being played and the saved progress.
+  const [tourView, setTourView] = useState<'map' | 'intro' | null>(null);
+  const [tourLevel, setTourLevel] = useState<Level | null>(null);
+  const [tourRun, setTourRun] = useState<TourRun | null>(null);
+  const tourRunRef = useRef<TourRun | null>(null);
+  const [tourProgress, setTourProgress] = useState(loadTourProgress);
+  const [tourNewTour, setTourNewTour] = useState<string | null>(null);
   const pendingStart = useRef<Mode | null>(null);
 
   const onOver = useCallback((s: GameState) => {
+    if (modeRef.current === 'tour') {
+      // The Tour keeps its own records (stars and best score per level) and sends no stats.
+      const run = tourRunRef.current;
+      if (run?.status === 'won') {
+        setTourProgress((p) => {
+          const before = p;
+          const next = recordResult(p, run.level.id, run.stars, run.game.score);
+          saveTourProgress(next);
+          const tourOf = (id: string) => TOURS.find((t) => t.levels.some((l) => l.id === id));
+          const list = allLevels(TOURS);
+          const i = list.findIndex((x) => x.level.id === run.level.id);
+          const following = list[i + 1];
+          const opened = following && !isUnlocked(TOURS, before, following.level.id) && tourOf(following.level.id) !== tourOf(run.level.id);
+          setTourNewTour(opened ? following.tour.name : null);
+          return next;
+        });
+        window.setTimeout(() => playSound('newBest'), 500);
+      } else setTourNewTour(null);
+      return;
+    }
     setBest((b) => {
       if (s.score > b) {
         saveBest(UI.bestKey, s.score);
@@ -96,6 +131,7 @@ export function App() {
     }
     setNewBest(false);
     modeRef.current = m;
+    game.setDriver(null);
     track('game_start', undefined, { mode: m });
     setMode(m);
     if (m === 'daily') {
@@ -106,6 +142,54 @@ export function App() {
   };
 
   const startDaily = () => begin(playedToday(daily, day) ? 'practice' : 'daily');
+
+  // ------------------------------------------------------------ Poker Tour
+  const tourDriver = (level: Level): GameDriver => ({
+    init: () => {
+      const run = startRun(level);
+      tourRunRef.current = run;
+      setTourRun(run);
+      return run.game;
+    },
+    play: (_state, move) => {
+      const r = playRun(tourRunRef.current!, move);
+      tourRunRef.current = r.run;
+      setTourRun(r.run);
+      return { state: r.run.game, events: r.events, board: r.board, rush: r.rush };
+    },
+    tick: (_state, ms) => {
+      const before = tourRunRef.current!;
+      const r = tickRun(before, ms);
+      tourRunRef.current = r.run;
+      if (r.run.status !== before.status) setTourRun(r.run);
+      return { state: r.run.game, events: r.events };
+    },
+  });
+
+  const playLevel = (level: Level) => {
+    setTourLevel(level);
+    setTourView(null);
+    setNewBest(false);
+    modeRef.current = 'tour';
+    setMode('tour');
+    game.setDriver(tourDriver(level));
+    game.start(level.seed);
+  };
+
+  const openTour = () => setTourView('map');
+  const pickLevel = (level: Level) => {
+    setTourLevel(level);
+    setTourView('intro');
+  };
+  const backToMap = () => {
+    game.quit();
+    setTourView('map');
+  };
+  const nextTourLevel = (level: Level | null): Level | null => {
+    if (!level) return null;
+    const list = allLevels(TOURS);
+    return list[list.findIndex((x) => x.level.id === level.id) + 1]?.level ?? null;
+  };
 
   const closeHelp = () => {
     setSheet(null);
@@ -149,15 +233,19 @@ export function App() {
           <RollingScore value={state.score} />
         </div>
         <div className={`hud-cell hud-clock ${left <= UI.clockWarningMs && phase === 'playing' ? 'warn' : ''}`}>
-          <span className="hud-value clock">{clockText(left)}</span>
+          {mode === 'tour' && state.config.mode === 'moves'
+            ? <span className="hud-value clock moves">{Math.max(0, state.config.maxMoves - state.moves)} <small>{TOUR_STRINGS.movesLeft}</small></span>
+            : <span className="hud-value clock">{clockText(left)}</span>}
         </div>
         <div className="hud-cell hud-right">
           <button className="icon-btn" type="button" onClick={() => game.setPaused(true)} aria-label={STRINGS.pause} disabled={phase !== 'playing'}>
             <PauseIcon />
           </button>
-          <span className="hud-best">{STRINGS.best} {fmt(best)}</span>
+          <span className="hud-best">{STRINGS.best} {fmt(mode === 'tour' && tourLevel ? tourProgress.levels[tourLevel.id]?.best ?? 0 : best)}</span>
         </div>
       </header>
+
+      {mode === 'tour' && tourRun && playing && <GoalsBar run={tourRun} />}
 
       <main className="stage">
         <TraceLabel trace={trace} allowed={!trace.hand || handAllowed(trace.hand, state.config, state.tokens)} />
@@ -183,7 +271,7 @@ export function App() {
 
       <Variety run={state.variety} length={state.config.varietyLength} multiplier={state.config.varietyMultiplier} />
 
-      <footer className="ladder" aria-label={STRINGS.hands}>
+      <footer className={`ladder ${mode === 'tour' ? 'tour' : ''}`} aria-label={STRINGS.hands}>
         {HAND_TYPES.map((h) => {
           const max = state.config.hands[h].tokens;
           const left = max === undefined ? null : state.tokens[h];
@@ -217,7 +305,7 @@ export function App() {
             <button className="btn primary" type="button" onClick={() => game.setPaused(false)}>{STRINGS.resume}</button>
             <button className="btn" type="button" onClick={toggleSound}>{sound ? STRINGS.soundOn : STRINGS.soundOff}</button>
             <button className="btn" type="button" onClick={() => setSheet('help')}>{STRINGS.howTo}</button>
-            <button className="btn ghost" type="button" onClick={game.quit}>{STRINGS.quit}</button>
+            <button className="btn ghost" type="button" onClick={mode === 'tour' ? backToMap : game.quit}>{mode === 'tour' ? TOUR_STRINGS.map : STRINGS.quit}</button>
           </div>
         </div>
       )}
@@ -234,13 +322,39 @@ export function App() {
           onDaily={startDaily}
           onHelp={() => setSheet('help')}
           onSound={toggleSound}
+          onTour={openTour}
           onRanking={leaderboardEnabled() ? () => { track('ranking_view'); setSheet('ranking'); } : undefined}
           onFeedback={leaderboardEnabled() ? () => setSheet('feedback') : undefined}
           onInstall={install ? () => void offerInstall() : undefined}
         />
       )}
 
-      {phase === 'over' && game.stats && (
+      {phase === 'over' && mode === 'tour' && tourRun && tourView === null && (
+        <TourResult
+          run={tourRun}
+          number={levelNumber(TOURS, tourRun.level.id)}
+          nextLevel={nextTourLevel(tourLevel)}
+          newTour={tourNewTour}
+          onNext={() => { const n = nextTourLevel(tourLevel); if (n) { game.quit(); pickLevel(n); } }}
+          onRetry={() => tourLevel && playLevel(tourLevel)}
+          onMap={backToMap}
+        />
+      )}
+
+      {tourView === 'map' && phase === 'menu' && (
+        <TourMap tours={TOURS} progress={tourProgress} onPick={pickLevel} onClose={() => setTourView(null)} />
+      )}
+      {tourView === 'intro' && tourLevel && (
+        <LevelIntro
+          level={tourLevel}
+          number={levelNumber(TOURS, tourLevel.id)}
+          best={tourProgress.levels[tourLevel.id]?.best ?? null}
+          onPlay={() => playLevel(tourLevel)}
+          onClose={() => setTourView('map')}
+        />
+      )}
+
+      {phase === 'over' && mode !== 'tour' && game.stats && (
         <GameOver
           score={state.score}
           best={best}
@@ -389,6 +503,8 @@ function floaterText(f: Floater): string {
     case 'shuffle': return STRINGS.shuffle;
     case 'power': return f.text ?? '';
     case 'variety': return STRINGS.variety.done(f.value);
+    case 'rush': return STRINGS.points(f.value);
+    case 'rushStart': return TOUR_STRINGS.rushStart;
     case 'combo': {
       const key = UI.comboTextKeys[Math.min(f.value - 2, UI.comboTextKeys.length - 1)];
       return `${STRINGS[key]} ${STRINGS.times(Number(f.text))}`;
@@ -407,12 +523,13 @@ interface MenuProps {
   onDaily: () => void;
   onHelp: () => void;
   onSound: () => void;
+  onTour: () => void;
   onRanking?: () => void;
   onFeedback?: () => void;
   onInstall?: () => void;
 }
 
-function Menu({ best, sound, dailyDone, dailyScore, streak, day, onPlay, onDaily, onHelp, onSound, onRanking, onFeedback, onInstall }: MenuProps) {
+function Menu({ best, sound, dailyDone, dailyScore, streak, day, onPlay, onDaily, onHelp, onSound, onTour, onRanking, onFeedback, onInstall }: MenuProps) {
   const cards = useMemo(() => parseCards('TH JH QH KH AH'), []);
   const ms = msUntilNext();
   return (
@@ -431,6 +548,10 @@ function Menu({ best, sound, dailyDone, dailyScore, streak, day, onPlay, onDaily
             {dailyDone ? STRINGS.nextDaily(Math.floor(ms / 3_600_000), Math.floor((ms % 3_600_000) / 60_000)) : STRINGS.dailyInfo}
           </small>
           {streak > 0 && <small className="streak">🔥 {STRINGS.streak(streak)}</small>}
+        </button>
+        <button className="btn tour" type="button" onClick={onTour}>
+          <span>🏆 {TOUR_STRINGS.menuButton}</span>
+          <small>{TOUR_STRINGS.menuInfo}</small>
         </button>
         <div className="menu-row">
           <button className="btn small" type="button" onClick={onHelp}>{STRINGS.howTo}</button>

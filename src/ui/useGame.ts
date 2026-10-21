@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { DEFAULT_CONFIG } from '../engine/config';
 import { applyMove, findHands, newGame, tick } from '../engine/game';
-import type { GameEvent, GameState, GameStats, HandType, Pos } from '../engine/types';
+import type { Board, GameEvent, GameState, GameStats, HandType, Move, MoveResult, Pos } from '../engine/types';
 import { playHand, playSound } from './audio';
 import { dealFrame, idleFrame, moveFrames, type Frame } from './frames';
 import { vibrate } from './haptics';
@@ -13,9 +13,26 @@ import { HAND_TIER, UI } from './uiConfig';
 
 export type Phase = 'menu' | 'countdown' | 'playing' | 'over';
 
+/**
+ * Another way to run a game (Poker Tour): where the starting state comes from, and what a move and the
+ * clock do. Without one, the Classic engine runs as always.
+ */
+export interface GameDriver {
+  init(): GameState;
+  play(state: GameState, move: Move): {
+    readonly state: GameState;
+    readonly events: readonly GameEvent[];
+    /** The board right after the move (before any Rush). */
+    readonly board: Board;
+    /** Poker Rush: bombs set off after the move, each with its events and the board after it. */
+    readonly rush: readonly { readonly pos: Pos; readonly points: number; readonly events: readonly GameEvent[]; readonly board: Board }[];
+  };
+  tick(state: GameState, ms: number): MoveResult;
+}
+
 export interface Floater {
   readonly id: number;
-  readonly kind: 'points' | 'combo' | 'time' | 'golden' | 'shuffle' | 'blast' | 'power' | 'variety';
+  readonly kind: 'points' | 'combo' | 'time' | 'golden' | 'shuffle' | 'blast' | 'power' | 'variety' | 'rush' | 'rushStart';
   readonly text?: string;
   readonly value: number;
   /** Cell position (fractional) for points; banners have none. */
@@ -49,6 +66,8 @@ export interface GameApi {
   readonly stats: GameStats | null;
   readonly seed: number;
   start(seed: number): void;
+  /** Runs the next games with this driver (null: the Classic engine). */
+  setDriver(driver: GameDriver | null): void;
   play(path: readonly Pos[]): boolean;
   setPaused(p: boolean): void;
   quit(): void;
@@ -79,6 +98,8 @@ export function useGame(onOver: (state: GameState) => void): GameApi {
   const phaseRef = useRef<Phase>('menu');
   const onOverRef = useRef(onOver);
   onOverRef.current = onOver;
+  const driverRef = useRef<GameDriver | null>(null);
+  const setDriver = useCallback((d: GameDriver | null) => { driverRef.current = d; }, []);
 
   const later = (fn: () => void, ms: number) => {
     timers.current.push(window.setTimeout(fn, ms));
@@ -137,6 +158,12 @@ export function useGame(onOver: (state: GameState) => void): GameApi {
       float({ kind: 'shuffle', value: 0 });
     }
     if (next.kind === 'fall') later(() => playSound('land'), next.duration * 0.7);
+    if (next.rush) {
+      if (next.rush.index === 0) float({ kind: 'rushStart', value: next.rush.total });
+      float({ kind: 'rush', value: next.rush.points, at: next.rush.pos });
+      playSound('blast');
+      vibrate('big');
+    }
     later(runQueue, next.duration);
   }, [finish, float]);
 
@@ -146,7 +173,7 @@ export function useGame(onOver: (state: GameState) => void): GameApi {
     queue.current = [];
     busyRef.current = false;
     setBusy(false);
-    const s = newGame({ seed: newSeed, config: DEFAULT_CONFIG });
+    const s = driverRef.current ? driverRef.current.init() : newGame({ seed: newSeed, config: DEFAULT_CONFIG });
     commit(s);
     setSeed(newSeed);
     setFaceDown(true);
@@ -175,7 +202,7 @@ export function useGame(onOver: (state: GameState) => void): GameApi {
       playSound('go');
       vibrate('go');
       setFaceDown(false);
-      const { rows, cols } = DEFAULT_CONFIG;
+      const { rows, cols } = stateRef.current.config;
       for (let d = 0; d < rows + cols - 1; d += 2) later(() => playSound('flip', 1 + d * 0.04), d * UI.anim.flipStep + UI.anim.flip * 0.3);
       setPhaseBoth('playing');
       lastActivity.current = performance.now();
@@ -207,7 +234,10 @@ export function useGame(onOver: (state: GameState) => void): GameApi {
   const play = useCallback((path: readonly Pos[]): boolean => {
     const s = stateRef.current;
     if (phaseRef.current !== 'playing' || pausedRef.current || busyRef.current) return false;
-    const { state: next, events } = applyMove(s, { path, atMs: s.elapsedMs });
+    const driver = driverRef.current;
+    const move = { path, atMs: s.elapsedMs };
+    const played = driver ? driver.play(s, move) : null;
+    const { state: next, events } = played ?? applyMove(s, move);
     if (!events.length) return false;
     setHint(null);
     lastActivity.current = performance.now();
@@ -218,7 +248,15 @@ export function useGame(onOver: (state: GameState) => void): GameApi {
     }
     commit(next);
     react(events);
-    queue.current = moveFrames(s.board, events, next.board);
+    queue.current = moveFrames(s.board, events, played ? played.board : next.board);
+    // Poker Rush: one burst of frames per bomb, each starting from the board the last one left.
+    let before = played?.board;
+    played?.rush.forEach((step, index, all) => {
+      const frames = moveFrames(before!, step.events, step.board);
+      if (frames.length) frames[0] = { ...frames[0], rush: { points: step.points, index, total: all.length, pos: step.pos } };
+      queue.current.push(...frames);
+      before = step.board;
+    });
     busyRef.current = true;
     setBusy(true);
     runQueue();
@@ -280,7 +318,7 @@ export function useGame(onOver: (state: GameState) => void): GameApi {
       last = now;
       const s = stateRef.current;
       if (!pausedRef.current && !busyRef.current && !s.gameOver) {
-        const r = tick(s, dt);
+        const r = driverRef.current ? driverRef.current.tick(s, dt) : tick(s, dt);
         commit(r.state);
         const left = r.state.timeLimitMs - r.state.elapsedMs;
         const sec = Math.ceil(left / 1000);
@@ -330,5 +368,5 @@ export function useGame(onOver: (state: GameState) => void): GameApi {
     setHint(null);
   }, []);
 
-  return { state, frame, phase, paused, countdown, floaters, banner, hint, guide, busy, faceDown, stats, seed, start, play, setPaused, quit, activity };
+  return { state, frame, phase, paused, countdown, floaters, banner, hint, guide, busy, faceDown, stats, seed, start, setDriver, play, setPaused, quit, activity };
 }

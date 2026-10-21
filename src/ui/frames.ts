@@ -40,6 +40,8 @@ export interface Frame {
   readonly duration: number;
   readonly hand?: HandInfo;
   readonly blast?: { readonly kind: BlastKind; readonly origin: Pos; readonly count: number; readonly points: number };
+  /** Poker Tour: the first frame of a Rush bomb (its points, which bomb, out of how many). */
+  readonly rush?: { readonly points: number; readonly index: number; readonly total: number; readonly pos: Pos };
 }
 
 let nextFrameId = 1;
@@ -118,6 +120,8 @@ export function moveFrames(before: Board, events: readonly GameEvent[], after: B
         duration: UI.anim.blast,
         blast: { kind: e.kind, origin: e.origin, count: e.cells.length, points: e.points },
       });
+    } else if (e.type === 'damage') {
+      for (const c of e.cells) board[c.pos.row][c.pos.col] = c.after;
     } else if (e.type === 'fall') {
       applyGravity(board);
     } else if (e.type === 'spawn') {

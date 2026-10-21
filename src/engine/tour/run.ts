@@ -3,7 +3,7 @@
 import { allPositions, cellAt } from '../board';
 import { applyMove, detonate, tick } from '../game';
 import { nextInt } from '../rng';
-import type { GameEvent, GameState, Move, Pos } from '../types';
+import type { Board, GameEvent, GameState, Move, Pos } from '../types';
 import { countEvents, goalProgress, NO_COUNTERS, type GoalProgress, type TourCounters } from './goals';
 import type { Level } from './schema';
 import { newLevelGame } from './setup';
@@ -28,6 +28,8 @@ export interface TourRun {
 export interface RunResult {
   readonly run: TourRun;
   readonly events: readonly GameEvent[];
+  /** The board right after the move, before any Rush. */
+  readonly board: Board;
   /** The Rush, one entry per bomb, when this move won the level. */
   readonly rush: readonly RushStep[];
 }
@@ -36,6 +38,8 @@ export interface RushStep {
   readonly pos: Pos;
   readonly events: readonly GameEvent[];
   readonly points: number;
+  /** The board after this bomb (the one before is the previous step's, or the move's). */
+  readonly board: Board;
 }
 
 export function startRun(level: Level): TourRun {
@@ -60,15 +64,15 @@ export function starsFor(level: Level, passed: boolean, score: number): 0 | 1 | 
 
 /** Plays a hand. Winning starts the Rush at once (its steps come back for the UI to play). */
 export function playRun(run: TourRun, move: Move): RunResult {
-  if (run.status !== 'playing') return { run, events: [], rush: [] };
+  if (run.status !== 'playing') return { run, events: [], board: run.game.board, rush: [] };
   const { state, events } = applyMove(run.game, move);
-  if (!events.length) return { run, events: [], rush: [] };
+  if (!events.length) return { run, events: [], board: run.game.board, rush: [] };
   return settle({ ...run, game: state, counters: countEvents(run.counters, events) }, events);
 }
 
 /** Advances the clock of a timed level; running out of time without the goals loses it. */
 export function tickRun(run: TourRun, ms: number): RunResult {
-  if (run.status !== 'playing') return { run, events: [], rush: [] };
+  if (run.status !== 'playing') return { run, events: [], board: run.game.board, rush: [] };
   const { state, events } = tick(run.game, ms);
   return settle({ ...run, game: state }, events);
 }
@@ -78,10 +82,10 @@ function settle(run: TourRun, events: readonly GameEvent[]): RunResult {
     const { game, steps } = pokerRush(run.game, leftover(run.game));
     const rushPoints = game.score - run.game.score;
     const won: TourRun = { ...run, game: { ...game, gameOver: true }, status: 'won', rushPoints, stars: starsFor(run.level, true, game.score) };
-    return { run: won, events, rush: steps };
+    return { run: won, events, board: run.game.board, rush: steps };
   }
-  if (run.game.gameOver) return { run: { ...run, status: 'lost' }, events, rush: [] };
-  return { run, events, rush: [] };
+  if (run.game.gameOver) return { run: { ...run, status: 'lost' }, events, board: run.game.board, rush: [] };
+  return { run, events, board: run.game.board, rush: [] };
 }
 
 /** Bombs the Rush gets: moves left, or time left in steps of RUSH.msPerBomb. */
@@ -107,7 +111,7 @@ export function pokerRush(game: GameState, bombs: number): { game: GameState; st
     const before = state.score;
     const r = detonate(state, cards[k]);
     state = r.state;
-    steps.push({ pos: cards[k], events: r.events, points: state.score - before });
+    steps.push({ pos: cards[k], events: r.events, points: state.score - before, board: state.board });
   }
   return { game: state, steps };
 }
