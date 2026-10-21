@@ -20,7 +20,7 @@ import { sendFeedback, track } from '../leaderboard/track';
 import { installMode, onInstallChange, promptInstall } from './install';
 import { shareText } from './share';
 import { TOURS } from '../engine/tour/levels';
-import { allLevels, isUnlocked, recordResult } from '../engine/tour/progress';
+import { allLevels, isUnlocked, newlyOpened, recordResult, starsMissing } from '../engine/tour/progress';
 import { playRun, startRun, tickRun, type TourRun } from '../engine/tour/run';
 import type { Level } from '../engine/tour/schema';
 import { loadTourProgress, saveTourProgress } from './tour/progressStore';
@@ -65,15 +65,9 @@ export function App() {
       const run = tourRunRef.current;
       if (run?.status === 'won') {
         setTourProgress((p) => {
-          const before = p;
           const next = recordResult(p, run.level.id, run.stars, run.game.score);
           saveTourProgress(next);
-          const tourOf = (id: string) => TOURS.find((t) => t.levels.some((l) => l.id === id));
-          const list = allLevels(TOURS);
-          const i = list.findIndex((x) => x.level.id === run.level.id);
-          const following = list[i + 1];
-          const opened = following && !isUnlocked(TOURS, before, following.level.id) && tourOf(following.level.id) !== tourOf(run.level.id);
-          setTourNewTour(opened ? following.tour.name : null);
+          setTourNewTour(newlyOpened(TOURS, p, next)[0]?.name ?? null);
           return next;
         });
         window.setTimeout(() => playSound('newBest'), 500);
@@ -190,6 +184,13 @@ export function App() {
     const list = allLevels(TOURS);
     return list[list.findIndex((x) => x.level.id === level.id) + 1]?.level ?? null;
   };
+  // After a level: the next one if it is open; if its tour still waits for stars, how many.
+  const following = nextTourLevel(tourLevel);
+  const nextOpen = following && isUnlocked(TOURS, tourProgress, following.id) ? following : null;
+  const followingTour = following ? TOURS.find((t) => t.levels.includes(following)) : undefined;
+  const nextLocked = following && !nextOpen && followingTour && starsMissing(followingTour, tourProgress) > 0
+    ? { tour: followingTour.name, missing: starsMissing(followingTour, tourProgress) }
+    : null;
 
   const closeHelp = () => {
     setSheet(null);
@@ -333,9 +334,10 @@ export function App() {
         <TourResult
           run={tourRun}
           number={levelNumber(TOURS, tourRun.level.id)}
-          nextLevel={nextTourLevel(tourLevel)}
+          nextLevel={nextOpen}
+          needStars={nextLocked}
           newTour={tourNewTour}
-          onNext={() => { const n = nextTourLevel(tourLevel); if (n) { game.quit(); pickLevel(n); } }}
+          onNext={() => { if (nextOpen) { game.quit(); pickLevel(nextOpen); } }}
           onRetry={() => tourLevel && playLevel(tourLevel)}
           onMap={backToMap}
         />

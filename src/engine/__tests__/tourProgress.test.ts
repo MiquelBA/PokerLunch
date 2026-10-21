@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { currentLevelId, EMPTY_PROGRESS, isUnlocked, parseProgress, recordResult, totalStars } from '../tour/progress';
+import { currentLevelId, EMPTY_PROGRESS, isUnlocked, newlyOpened, parseProgress, recordResult, starsMissing, totalStars } from '../tour/progress';
 import type { Level, Tour } from '../tour/schema';
 
 const lvl = (id: string): Level => ({ id, name: id, limit: { kind: 'moves', moves: 10 }, board: { rows: 5, cols: 5 }, goals: [{ type: 'score', target: 1 }], stars: [10, 20], seed: 1 });
@@ -19,6 +19,18 @@ describe('tour progress', () => {
     p = recordResult(p, 'a2', 2, 100);
     expect(isUnlocked(tours, p, 'b1')).toBe(true);
     expect(currentLevelId(tours, p)).toBe('b1');
+  });
+
+  it('a tour that asks for stars stays closed until they are earned, replays included', () => {
+    const gated: Tour[] = [tours[0], { ...tours[1], starsToOpen: 4 }];
+    let p = recordResult(recordResult(EMPTY_PROGRESS, 'a1', 1, 100), 'a2', 2, 100);
+    expect(starsMissing(gated[1], p)).toBe(1);
+    expect(isUnlocked(gated, p, 'b1')).toBe(false);
+    expect(currentLevelId(gated, p)).toBe(null);
+    const better = recordResult(p, 'a1', 2, 300);
+    expect(isUnlocked(gated, better, 'b1')).toBe(true);
+    expect(newlyOpened(gated, p, better).map((t) => t.id)).toEqual(['t2']);
+    expect(newlyOpened(gated, better, better)).toEqual([]);
   });
 
   it('a lost try changes nothing; replays keep the best stars and best score', () => {

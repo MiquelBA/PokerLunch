@@ -67,6 +67,8 @@ export interface Tour {
   readonly id: string;
   readonly name: string;
   readonly theme: TourTheme;
+  /** Stars needed (over all tours) to open it, on top of passing the level before. */
+  readonly starsToOpen?: number;
   readonly levels: readonly Level[];
 }
 

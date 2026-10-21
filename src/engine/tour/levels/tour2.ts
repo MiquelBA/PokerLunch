@@ -5,6 +5,8 @@ export const TOUR_2: Tour = {
   id: 'montecarlo',
   name: 'Montecarlo',
   theme: 'montecarlo',
+  // Barcelona passed (10) plus a couple of replays for a second star.
+  starsToOpen: 12,
   levels: [
     {
       id: 't2-01', name: 'Metxa curta', seed: 201,

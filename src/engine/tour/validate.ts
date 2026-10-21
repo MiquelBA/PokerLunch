@@ -47,7 +47,10 @@ export function validateLevel(level: Level): string[] {
 export function validateTours(tours: readonly Tour[]): string[] {
   const out: string[] = [];
   const ids = new Set<string>();
+  let maxStars = 0;
   for (const t of tours) {
+    if ((t.starsToOpen ?? 0) > maxStars) out.push(`${t.id}: asks for ${t.starsToOpen} stars, the tours before it give ${maxStars}`);
+    maxStars += t.levels.length * 3;
     for (const l of t.levels) {
       if (ids.has(l.id)) out.push(`${l.id}: duplicate id`);
       ids.add(l.id);

@@ -1,7 +1,7 @@
 // Poker Tour screens: the map of tours and levels, a level's card before playing, the goals bar in
 // the game and the result at the end.
 import { useEffect, useMemo, useState } from 'react';
-import { allLevels, currentLevelId, isUnlocked, totalStars, type TourProgress } from '../../engine/tour/progress';
+import { allLevels, currentLevelId, isUnlocked, starsMissing, totalStars, type TourProgress } from '../../engine/tour/progress';
 import { progress as goalsOf, type TourRun } from '../../engine/tour/run';
 import type { Level, Tour } from '../../engine/tour/schema';
 import { playSound } from '../audio';
@@ -45,6 +45,7 @@ export function TourMap({ tours, progress, onPick, onClose }: {
                 <h3>{tour.name}</h3>
                 <span>{T.stars(stars, tour.levels.length * 3)}</span>
               </div>
+              {starsMissing(tour, progress) > 0 && <p className="tour-gate">🔒 {T.tourLocked(tour.starsToOpen ?? 0, totalStars(progress))}</p>}
               <div className="tour-levels">
                 {tour.levels.map((level) => {
                   const open = isUnlocked(tours, progress, level.id);
@@ -129,8 +130,8 @@ export function GoalsBar({ run }: { run: TourRun }) {
   );
 }
 
-export function TourResult({ run, number, nextLevel, newTour, onNext, onRetry, onMap }: {
-  run: TourRun; number: number; nextLevel: Level | null; newTour: string | null;
+export function TourResult({ run, number, nextLevel, needStars, newTour, onNext, onRetry, onMap }: {
+  run: TourRun; number: number; nextLevel: Level | null; needStars: { tour: string; missing: number } | null; newTour: string | null;
   onNext: () => void; onRetry: () => void; onMap: () => void;
 }) {
   const won = run.status === 'won';
@@ -179,7 +180,8 @@ export function TourResult({ run, number, nextLevel, newTour, onNext, onRetry, o
         </ul>
         {won && newTour && <p className="new-tour">🎉 {T.unlockedTour(newTour)}</p>}
         {won && nextLevel && <button className="btn primary big" type="button" onClick={onNext} autoFocus>{T.next}</button>}
-        {won && !nextLevel && <p className="new-tour">🏆 {T.tourDone}</p>}
+        {won && !nextLevel && needStars && <p className="new-tour">⭐ {T.needStars(needStars.tour, needStars.missing)}</p>}
+        {won && !nextLevel && !needStars && <p className="new-tour">🏆 {T.tourDone}</p>}
         <button className={`btn ${won ? 'small' : 'primary big'}`} type="button" onClick={onRetry}>{won ? T.replay : T.retry}</button>
         <button className="btn small ghost" type="button" onClick={onMap}>{T.map}</button>
       </div>

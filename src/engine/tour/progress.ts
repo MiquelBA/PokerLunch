@@ -19,12 +19,23 @@ export function allLevels(tours: readonly Tour[]) {
   return tours.flatMap((t) => t.levels.map((level) => ({ tour: t, level })));
 }
 
-/** A level is open when it is the first, or the one before it has been passed. */
+/** A level is open when it is the first, or the one before it has been passed, and its tour has the stars it asks for. */
 export function isUnlocked(tours: readonly Tour[], progress: TourProgress, levelId: string): boolean {
   const list = allLevels(tours);
   const i = list.findIndex((x) => x.level.id === levelId);
   if (i < 0) return false;
+  if (starsMissing(list[i].tour, progress) > 0) return false;
   return i === 0 || !!progress.levels[list[i - 1].level.id];
+}
+
+/** Stars still needed to open a tour (0: it has enough). */
+export function starsMissing(tour: Tour, progress: TourProgress): number {
+  return Math.max(0, (tour.starsToOpen ?? 0) - totalStars(progress));
+}
+
+/** Tours whose first level opened between two progresses (after a win or a better replay). */
+export function newlyOpened(tours: readonly Tour[], before: TourProgress, after: TourProgress): Tour[] {
+  return tours.filter((t) => t.levels[0] && !isUnlocked(tours, before, t.levels[0].id) && isUnlocked(tours, after, t.levels[0].id));
 }
 
 /** Keeps the best stars and the best score separately (a replay can improve either). */
@@ -39,10 +50,11 @@ export function totalStars(progress: TourProgress): number {
   return Object.values(progress.levels).reduce((n, r) => n + r.stars, 0);
 }
 
-/** The next level to play: the first not yet passed (or the last one). */
+/** The next level to play: the first not yet passed (or the last one); null while it waits for stars. */
 export function currentLevelId(tours: readonly Tour[], progress: TourProgress): string | null {
   const list = allLevels(tours);
-  return (list.find((x) => !progress.levels[x.level.id]) ?? list[list.length - 1])?.level.id ?? null;
+  const id = (list.find((x) => !progress.levels[x.level.id]) ?? list[list.length - 1])?.level.id ?? null;
+  return id && isUnlocked(tours, progress, id) ? id : null;
 }
 
 /** Reads saved progress, dropping anything malformed instead of failing. */

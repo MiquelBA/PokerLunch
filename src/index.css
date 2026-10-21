@@ -731,3 +731,4 @@ button:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
 .new-tour { font-weight: 800 !important; color: var(--gold); }
 .float-rushStart { top: 18%; font-size: min(56px, 14vw); color: var(--gold); text-shadow: 0 4px 0 #7A4A00, 0 0 22px rgba(255, 201, 60, 0.9); animation-name: power-pop !important; }
 .float-rush { font-size: 30px; color: #fff; text-shadow: 0 2px 0 #6E0E37, 0 0 10px rgba(255, 61, 139, 0.9); }
+.tour-gate { margin: -2px 0 10px; font-size: 15px; font-weight: 700; color: var(--gold); }

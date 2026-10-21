@@ -32,6 +32,8 @@ export const TOUR_STRINGS = {
   map: 'Mapa',
   tourDone: 'Tour completat!',
   unlockedTour: (name: string) => `Nou tour obert: ${name}`,
+  needStars: (name: string, k: number) => `Aconsegueix ${k} ★ més per obrir ${name}. Repeteix nivells per millorar-ne les estrelles!`,
+  tourLocked: (k: number, have: number) => `Necessites ${k} ★ per obrir-lo (en tens ${have})`,
   rules: {
     ice: 'Carta glaçada: no es pot tocar. Fes mans al seu costat per desglaçar-la.',
     block: 'Bloc: atura les cartes. Es trenca fent mans al seu costat.',

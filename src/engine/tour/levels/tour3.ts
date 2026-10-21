@@ -5,6 +5,8 @@ export const TOUR_3: Tour = {
   id: 'vegas',
   name: 'Las Vegas',
   theme: 'vegas',
+  // Both tours passed (20) plus a second star on about half the levels.
+  starsToOpen: 30,
   levels: [
     {
       id: 't3-01', name: 'Escala de color', seed: 301,
