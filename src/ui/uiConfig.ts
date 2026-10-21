@@ -61,6 +61,8 @@ export const UI = {
   daily: { timeZone: 'Europe/Madrid', key: 'poker-lunch:daily' },
   helpSeenKey: 'poker-lunch:help-seen',
   guideKey: 'poker-lunch:guide-hands',
+  varietyTipKey: 'poker-lunch:variety-tip',
+  varietyTipMs: 4000,
   haptics: {
     step: [10],
     hand: [40],

@@ -299,7 +299,42 @@ function Variety({ run, length, multiplier }: { run: readonly HandType[]; length
       {Array.from({ length }, (_, i) => (
         <span key={i} className={`variety-slot ${run[i] ? 'filled' : ''}`}>{run[i] ? HAND_NAMES[run[i]] : '?'}</span>
       ))}
-      <span className="variety-prize">{STRINGS.times(multiplier)}</span>
+      <span className="variety-prize">{STRINGS.variety.equals} {STRINGS.times(multiplier)}</span>
+      <VarietyTip run={run} />
+    </div>
+  );
+}
+
+/** The first time a player starts a variety run, a short tip says what the slots are for. */
+function VarietyTip({ run }: { run: readonly HandType[] }) {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    if (run.length !== 1 || loadFlag(UI.varietyTipKey, false)) return;
+    saveFlag(UI.varietyTipKey, true);
+    setShow(true);
+    const t = window.setTimeout(() => setShow(false), UI.varietyTipMs);
+    return () => window.clearTimeout(t);
+  }, [run.length]);
+  return show ? <div className="variety-tip">{STRINGS.variety.tip}</div> : null;
+}
+
+const VARIETY_DEMO: readonly HandType[] = ['trips', 'straight', 'fullHouse'];
+
+/** The help's variety run: three different hands fill the slots, the third pays ×2. */
+function VarietyDemo() {
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    const t = window.setInterval(() => setStep((s) => (s + 1) % 6), 800);
+    return () => window.clearInterval(t);
+  }, []);
+  const filled = Math.min(step, 3);
+  return (
+    <div className="variety variety-demo" aria-hidden="true">
+      {VARIETY_DEMO.map((h, i) => (
+        <span key={i} className={`variety-slot ${i < filled ? 'filled' : ''}`}>{i < filled ? HAND_NAMES[h] : '?'}</span>
+      ))}
+      <span className={`variety-prize ${filled === 3 ? 'won' : ''}`}>{STRINGS.times(2)}</span>
+      {filled === 3 && <span className="variety-demo-power">{STRINGS.help.varietyPower}</span>}
     </div>
   );
 }
@@ -523,6 +558,8 @@ function Help({ onClose }: { onClose: () => void }) {
         <p>{H.trace} <strong>{H.all}</strong></p>
         <p>{H.time}</p>
         <p>{H.tokens}</p>
+        <h3>{H.varietyTitle}</h3>
+        <VarietyDemo />
         <p>{H.variety}</p>
         <div className="help-specials">
           <div className="help-special"><div className="mini"><CardFace card={{ rank: 0, suit: 0, joker: true }} /></div><span>{H.joker}</span></div>
