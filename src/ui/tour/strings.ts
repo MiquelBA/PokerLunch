@@ -8,6 +8,7 @@ export const TOUR_STRINGS = {
   title: 'Poker Tour',
   menuButton: 'Poker Tour',
   menuInfo: '30 nivells en 3 ciutats',
+  menuProgress: (level: number, stars: number, of: number) => `Nivell ${level} · ${stars}/${of} ★`,
   back: 'Torna',
   stars: (k: number, of: number) => `${k}/${of} ★`,
   locked: 'Supera el nivell anterior per obrir-lo',

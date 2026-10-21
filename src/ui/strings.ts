@@ -88,6 +88,8 @@ export const STRINGS = {
   streak: (d: number) => (d === 1 ? '1 dia seguit' : `${d} dies seguits`),
   nextDaily: (h: number, m: number) => `Nou repte d’aquí a ${h} h ${m} min`,
   howTo: 'Com es juga',
+  /** The small buttons at the bottom of the start screen. */
+  menu: { more: 'Més opcions', help: 'Com es juga', sound: 'So', ranking: 'Rànquing', feedback: 'Opina', install: 'Instal·la' },
   score: 'Punts',
   best: 'Rècord',
   time: 'Temps',
@@ -183,6 +185,14 @@ export const STRINGS = {
   },
   help: {
     title: 'Com es juga',
+    page1: 'Com es fa una mà',
+    page2: 'Les combinacions',
+    page3: 'Els extres',
+    step: (i: number, of: number) => `${i} de ${of}`,
+    skip: 'Salta',
+    next: 'Següent',
+    letsGo: 'Som-hi!',
+    dontShow: 'No m’ho tornis a mostrar',
     moveTitle: 'Arrossega el dit per les cartes i guanya punts fent combinacions de pòquer',
     moveLead: 'Ves de carta en carta sense aixecar el dit: amunt, avall, als costats i ',
     moveDiagonal: 'en diagonal',

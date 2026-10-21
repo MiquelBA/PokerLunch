@@ -10,7 +10,7 @@ import { CardFace, CardSprite } from './CardFace';
 import { currentStreak, dailyDate, dailySeed, finishOfficial, loadDaily, msUntilNext, playedToday, shortDate, startOfficial } from './daily';
 import { vibrate } from './haptics';
 import { loadBest, loadFlag, saveBest, saveFlag } from './storage';
-import { BLAST_RULES, HAND_EXAMPLES, HAND_NAMES, HAND_RULES, POWER_RULES, STRINGS } from './strings';
+import { HAND_EXAMPLES, HAND_NAMES, HAND_RULES, STRINGS } from './strings';
 import { BIG_TIER, HAND_TIER, ROYAL_TIER, UI } from './uiConfig';
 import { useGame, type Floater } from './useGame';
 import { DEFAULT_CONFIG } from '../engine/config';
@@ -20,7 +20,7 @@ import { sendFeedback, track } from '../leaderboard/track';
 import { installMode, onInstallChange, promptInstall } from './install';
 import { shareText } from './share';
 import { TOURS } from '../engine/tour/levels';
-import { allLevels, isUnlocked, newlyOpened, recordResult, starsMissing } from '../engine/tour/progress';
+import { allLevels, currentLevelId, isUnlocked, newlyOpened, recordResult, starsMissing, totalStars, type TourProgress } from '../engine/tour/progress';
 import { playRun, startRun, tickRun, type TourRun } from '../engine/tour/run';
 import type { Level } from '../engine/tour/schema';
 import { loadTourProgress, saveTourProgress } from './tour/progressStore';
@@ -118,7 +118,6 @@ export function App() {
   const begin = (m: Mode) => {
     // The first game starts with how to play.
     if (!loadFlag(UI.helpSeenKey, false)) {
-      saveFlag(UI.helpSeenKey, true);
       pendingStart.current = m;
       setSheet('help');
       return;
@@ -192,7 +191,9 @@ export function App() {
     ? { tour: followingTour.name, missing: starsMissing(followingTour, tourProgress) }
     : null;
 
-  const closeHelp = () => {
+  const closeHelp = (dontShowAgain: boolean) => {
+    // Shown before a game: it comes back next time unless the player ticked "don't show again".
+    if (pendingStart.current) saveFlag(UI.helpSeenKey, dontShowAgain);
     setSheet(null);
     const m = pendingStart.current;
     pendingStart.current = null;
@@ -327,6 +328,7 @@ export function App() {
           onRanking={leaderboardEnabled() ? () => { track('ranking_view'); setSheet('ranking'); } : undefined}
           onFeedback={leaderboardEnabled() ? () => setSheet('feedback') : undefined}
           onInstall={install ? () => void offerInstall() : undefined}
+          tourInfo={tourMenuInfo(tourProgress)}
         />
       )}
 
@@ -370,7 +372,7 @@ export function App() {
         />
       )}
 
-      {sheet === 'help' && <Help onClose={closeHelp} />}
+      {sheet === 'help' && <Help auto={pendingStart.current !== null} onClose={closeHelp} />}
       {sheet === 'ranking' && <RankingSheet day={day} onClose={() => setSheet(null)} />}
       {sheet === 'feedback' && <FeedbackSheet context={{ phase, score: state.score }} onClose={() => setSheet(null)} />}
       {sheet === 'install' && <InstallSheet onClose={() => setSheet(null)} />}
@@ -529,11 +531,22 @@ interface MenuProps {
   onRanking?: () => void;
   onFeedback?: () => void;
   onInstall?: () => void;
+  /** The Poker Tour button's second line: where the player is, or what it is. */
+  tourInfo: string;
 }
 
-function Menu({ best, sound, dailyDone, dailyScore, streak, day, onPlay, onDaily, onHelp, onSound, onTour, onRanking, onFeedback, onInstall }: MenuProps) {
+function tourMenuInfo(progress: TourProgress): string {
+  const stars = totalStars(progress);
+  if (!stars) return TOUR_STRINGS.menuInfo;
+  const id = currentLevelId(TOURS, progress);
+  return id ? TOUR_STRINGS.menuProgress(levelNumber(TOURS, id), stars, allLevels(TOURS).length * 3) : TOUR_STRINGS.stars(stars, allLevels(TOURS).length * 3);
+}
+
+function Menu({ best, sound, dailyDone, dailyScore, streak, day, onPlay, onDaily, onHelp, onSound, onTour, onRanking, onFeedback, onInstall, tourInfo }: MenuProps) {
   const cards = useMemo(() => parseCards('TH JH QH KH AH'), []);
   const ms = msUntilNext();
+  const M = STRINGS.menu;
+  // Three levels: play and the Tour first, the daily challenge next, everything else small at the bottom.
   return (
     <div className="overlay menu">
       <div className="menu-inner">
@@ -543,30 +556,25 @@ function Menu({ best, sound, dailyDone, dailyScore, streak, day, onPlay, onDaily
         <h1 className="logo">POKER<br /><span>LUNCH</span></h1>
         <p className="tagline">{STRINGS.tagline}</p>
         <button className="btn primary big" type="button" onClick={onPlay}>{STRINGS.play}</button>
-        <button className="btn daily" type="button" onClick={onDaily}>
-          <span>{dailyDone ? STRINGS.dailyPractice : STRINGS.daily} · {shortDate(day)}</span>
-          <small>
-            {dailyDone && dailyScore !== null ? `${fmt(dailyScore)} punts · ` : ''}
-            {dailyDone ? STRINGS.nextDaily(Math.floor(ms / 3_600_000), Math.floor((ms % 3_600_000) / 60_000)) : STRINGS.dailyInfo}
-          </small>
+        <button className="btn tour-hero" type="button" onClick={onTour}>
+          <span className="tour-hero-title">🏆 {TOUR_STRINGS.menuButton}</span>
+          <small>{tourInfo}</small>
+        </button>
+        <button className={`btn daily ${dailyDone ? 'done' : ''}`} type="button" onClick={onDaily}>
+          <span>{dailyDone ? '✓ ' : '📅 '}{dailyDone ? STRINGS.dailyPractice : STRINGS.daily} · {shortDate(day)}</span>
+          {dailyDone && dailyScore !== null && (
+            <small>{fmt(dailyScore)} · {STRINGS.nextDaily(Math.floor(ms / 3_600_000), Math.floor((ms % 3_600_000) / 60_000))}</small>
+          )}
           {streak > 0 && <small className="streak">🔥 {STRINGS.streak(streak)}</small>}
         </button>
-        <button className="btn tour" type="button" onClick={onTour}>
-          <span>🏆 {TOUR_STRINGS.menuButton}</span>
-          <small>{TOUR_STRINGS.menuInfo}</small>
-        </button>
-        <div className="menu-row">
-          <button className="btn small" type="button" onClick={onHelp}>{STRINGS.howTo}</button>
-          <button className="btn small" type="button" onClick={onSound}>{sound ? STRINGS.soundOn : STRINGS.soundOff}</button>
-        </div>
-        {onRanking && <button className="btn small ranking" type="button" onClick={onRanking}>🏆 {STRINGS.leaderboard.open}</button>}
         {best > 0 && <p className="menu-best">{STRINGS.best}: {fmt(best)}</p>}
-        {(onInstall || onFeedback) && (
-          <div className="menu-links">
-            {onInstall && <button className="link-btn" type="button" onClick={onInstall}>📲 {STRINGS.install.button}</button>}
-            {onFeedback && <button className="link-btn" type="button" onClick={onFeedback}>💬 {STRINGS.feedback.button}</button>}
-          </div>
-        )}
+        <nav className="menu-tools" aria-label={M.more}>
+          <button type="button" onClick={onHelp}><span aria-hidden="true">❓</span>{M.help}</button>
+          <button type="button" onClick={onSound} aria-pressed={sound}><span aria-hidden="true">{sound ? '🔊' : '🔇'}</span>{M.sound}</button>
+          {onRanking && <button type="button" onClick={onRanking}><span aria-hidden="true">🏅</span>{M.ranking}</button>}
+          {onFeedback && <button type="button" onClick={onFeedback}><span aria-hidden="true">💬</span>{M.feedback}</button>}
+          {onInstall && <button type="button" onClick={onInstall}><span aria-hidden="true">📲</span>{M.install}</button>}
+        </nav>
       </div>
     </div>
   );
@@ -766,54 +774,86 @@ function useCountUp(target: number, ms: number): number {
   return v;
 }
 
-function Help({ onClose }: { onClose: () => void }) {
+/** How to play, in three swipeable screens: making a hand, the hands, the extras. */
+function Help({ auto, onClose }: { auto: boolean; onClose: (dontShowAgain: boolean) => void }) {
   const H = STRINGS.help;
+  const [page, setPage] = useState(0);
+  const [dontShow, setDontShow] = useState(true);
+  const pagesRef = useRef<HTMLDivElement>(null);
+  const last = HELP_PAGES - 1;
+  const go = (i: number) => {
+    const el = pagesRef.current;
+    if (el) el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
+    setPage(i);
+  };
+  const onScroll = () => {
+    const el = pagesRef.current;
+    if (el && el.clientWidth) setPage(Math.round(el.scrollLeft / el.clientWidth));
+  };
+  const close = () => onClose(dontShow);
   return (
-    <div className="overlay dim" onClick={onClose}>
-      <div className="sheet help" onClick={(e) => e.stopPropagation()}>
-        <h2>{H.title}</h2>
-        <p className="help-move-title">{H.moveTitle}</p>
-        <TraceDemo />
-        <p className="help-move">{H.moveLead}<strong>{H.moveDiagonal}</strong>{H.moveTail}</p>
-        <div className="help-rose"><NeighbourRose /><span>{H.rose}</span></div>
-        <p>{H.trace} <strong>{H.all}</strong></p>
-        <p>{H.time}</p>
-        <p>{H.tokens}</p>
-        <h3>{H.varietyTitle}</h3>
-        <VarietyDemo />
-        <p>{H.variety}</p>
-        <div className="help-specials">
-          <div className="help-special"><div className="mini"><CardFace card={{ rank: 0, suit: 0, joker: true }} /></div><span>{H.joker}</span></div>
-          <div className="help-special"><div className="mini"><CardFace card={{ rank: 12, suit: 1, golden: true }} /></div><span>{H.golden}</span></div>
+    <div className="overlay dim">
+      <div className="sheet help" role="dialog" aria-modal="true" aria-label={H.title}>
+        <div className="help-top">
+          <span className="help-step">{H.step(page + 1, HELP_PAGES)}</span>
+          {page < last && <button className="btn small ghost help-skip" type="button" onClick={close}>{H.skip}</button>}
         </div>
-        <h3>{H.handsTitle}</h3>
-        <div className="help-hands">
-          {HAND_TYPES.map((h) => {
-            const def = DEFAULT_CONFIG.hands[h];
-            return (
-              <div key={h} className={`help-hand tier-${HAND_TIER[h]}`}>
-                <div className="help-hand-head">
-                  <span className="help-hand-name">{HAND_NAMES[h]}</span>
-                  <span className="help-hand-points">{fmt(def.points)}</span>
+        <div className="help-pages" ref={pagesRef} onScroll={onScroll}>
+          <section className="help-page">
+            <h2>{H.page1}</h2>
+            <p className="help-move-title">{H.moveTitle}</p>
+            <TraceDemo />
+            <p className="help-move">{H.moveLead}<strong>{H.moveDiagonal}</strong>{H.moveTail}</p>
+            <div className="help-rose"><NeighbourRose /><span>{H.rose}</span></div>
+            <p>{H.trace} <strong>{H.all}</strong></p>
+          </section>
+          <section className="help-page">
+            <h2>{H.page2}</h2>
+            <div className="help-hands">
+              {HAND_TYPES.map((h) => (
+                <div key={h} className={`help-hand tier-${HAND_TIER[h]}`}>
+                  <div className="help-hand-head">
+                    <span className="help-hand-name">{HAND_NAMES[h]}</span>
+                    <span className="help-hand-points">{fmt(DEFAULT_CONFIG.hands[h].points)}</span>
+                  </div>
+                  <div className="help-cards">
+                    {parseCards(HAND_EXAMPLES[h]).map((c, i) => <div key={i} className="mini"><CardFace card={c} /></div>)}
+                  </div>
+                  <span className="help-hand-rule">{HAND_RULES[h]}</span>
                 </div>
-                <div className="help-cards">
-                  {parseCards(HAND_EXAMPLES[h]).map((c, i) => <div key={i} className="mini"><CardFace card={c} /></div>)}
-                </div>
-                <span className="help-hand-rule">
-                  {HAND_RULES[h]}
-                  {def.blast ? ` · ${BLAST_RULES[def.blast]}` : ''}
-                  {def.timeBonusMs ? ` · ${STRINGS.timeBonus(def.timeBonusMs / 1000)}` : ''}
-                </span>
-                <span className="help-hand-power">
-                  {def.tokens !== undefined ? `${H.tokensOf(def.tokens)} · ` : `${H.noLimit} · `}
-                  {H.power}: {POWER_RULES[def.power]}
-                </span>
-              </div>
-            );
-          })}
+              ))}
+            </div>
+          </section>
+          <section className="help-page">
+            <h2>{H.page3}</h2>
+            <p>{H.time}</p>
+            <h3>{H.varietyTitle}</h3>
+            <VarietyDemo />
+            <p>{H.variety}</p>
+            <div className="help-specials">
+              <div className="help-special"><div className="mini"><CardFace card={{ rank: 0, suit: 0, joker: true }} /></div><span>{H.joker}</span></div>
+              <div className="help-special"><div className="mini"><CardFace card={{ rank: 12, suit: 1, golden: true }} /></div><span>{H.golden}</span></div>
+            </div>
+            <p>{H.tokens}</p>
+          </section>
         </div>
-        <button className="btn primary" type="button" onClick={onClose}>{STRINGS.close}</button>
+        <div className="help-dots" role="tablist">
+          {Array.from({ length: HELP_PAGES }, (_, i) => (
+            <button key={i} type="button" role="tab" aria-selected={i === page} aria-label={H.step(i + 1, HELP_PAGES)} className={i === page ? 'on' : ''} onClick={() => go(i)} />
+          ))}
+        </div>
+        {auto && (
+          <label className="help-again">
+            <input type="checkbox" checked={dontShow} onChange={(e) => setDontShow(e.target.checked)} />
+            {H.dontShow}
+          </label>
+        )}
+        {page < last
+          ? <button className="btn primary" type="button" onClick={() => go(page + 1)}>{H.next}</button>
+          : <button className="btn primary" type="button" onClick={close}>{auto ? H.letsGo : STRINGS.close}</button>}
       </div>
     </div>
   );
 }
+
+const HELP_PAGES = 3;
