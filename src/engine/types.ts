@@ -30,10 +30,10 @@ export type Cell = Card | null;
 /** Row-major grid: board[row][col]. (0,0) is top-left. */
 export type Board = readonly (readonly Cell[])[];
 
-/** Poker hands, weakest first. Every card of a traced path must be part of the hand. */
+/** Poker hands, weakest first (real poker order). Every card of a traced path must be part of the hand. */
 export const HAND_TYPES = [
-  'trips',
   'twoPair',
+  'trips',
   'straight',
   'flush',
   'fullHouse',

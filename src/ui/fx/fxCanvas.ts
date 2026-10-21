@@ -1,7 +1,7 @@
 // A small canvas effects engine: particles, shock rings, light rays and vortices. Purely decorative:
 // it runs its own animation frame loop only while something is alive, and never affects the game.
 
-export type ParticleShape = 'dot' | 'spark' | 'bubble';
+export type ParticleShape = 'dot' | 'spark' | 'bubble' | 'chip' | 'confetti';
 
 export interface ParticleSpec {
   x: number;
@@ -89,7 +89,8 @@ export class FxCanvas {
 
   particle(spec: ParticleSpec): void {
     const o = spec.orbit;
-    const angle = o ? Math.atan2(spec.y - o.cy, spec.x - o.cx) : 0;
+    // Orbiting particles start at their angle round the centre; chips and confetti at a random turn.
+    const angle = o ? Math.atan2(spec.y - o.cy, spec.x - o.cx) : Math.random() * Math.PI * 2;
     const dist = o ? Math.hypot(spec.x - o.cx, spec.y - o.cy) : 0;
     this.add({ kind: 'particle', spec, age: -(spec.delayMs ?? 0), x: spec.x, y: spec.y, vx: spec.vx, vy: spec.vy, angle, dist });
   }
@@ -177,6 +178,34 @@ export class FxCanvas {
       ctx.moveTo(p.x, p.y);
       ctx.lineTo(p.x - (p.vx / speed) * len, p.y - (p.vy / speed) * len);
       ctx.stroke();
+    } else if (s.shape === 'chip') {
+      // A casino chip, seen tumbling: an ellipse that flips, with a white dashed rim.
+      const squash = Math.abs(Math.cos(p.angle + t * 14));
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.scale(1, Math.max(0.15, squash));
+      ctx.fillStyle = s.color;
+      ctx.beginPath();
+      ctx.arc(0, 0, s.size, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = s.size * 0.28;
+      ctx.setLineDash([s.size * 0.42, s.size * 0.42]);
+      ctx.beginPath();
+      ctx.arc(0, 0, s.size * 0.84, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    } else if (s.shape === 'confetti') {
+      // A paper strip turning as it falls.
+      const turn = p.angle + t * 18;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(turn);
+      ctx.scale(1, Math.max(0.2, Math.abs(Math.sin(turn * 1.7))));
+      ctx.fillStyle = s.color;
+      ctx.fillRect(-s.size, -s.size * 0.45, s.size * 2, s.size * 0.9);
+      ctx.restore();
     } else if (s.shape === 'bubble') {
       ctx.strokeStyle = s.color;
       ctx.lineWidth = Math.max(1, s.size * 0.18);

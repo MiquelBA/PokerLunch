@@ -226,7 +226,7 @@ export function useGame(onOver: (state: GameState) => void): GameApi {
     const bannerId = nextFloaterId++;
     setBanner({ id: bannerId, hand: handEvent.hand, tier, points: handEvent.points });
     window.setTimeout(() => setBanner((b) => (b?.id === bannerId ? null : b)), UI.anim.banner[tier]);
-    vibrate(tier >= 3 ? 'huge' : tier >= 2 ? 'big' : 'hand');
+    vibrate(tier >= 4 ? 'huge' : tier >= 2 ? 'big' : 'hand');
     const at = {
       row: handEvent.path.reduce((a, p) => a + p.row, 0) / handEvent.path.length,
       col: handEvent.path.reduce((a, p) => a + p.col, 0) / handEvent.path.length,

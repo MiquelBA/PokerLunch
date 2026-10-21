@@ -1,12 +1,15 @@
 // What the effects canvas draws for each frame. The bigger the hand, the bigger the show: tier 0
-// (trips) is a small burst; tier 4 (royal flush) fills the screen with rays, shock rings and a
-// rain of gold.
+// (two pair, trips) is a small burst; from the full house up each tier adds a layer (casino chips,
+// beams, a colour wave and fireworks, confetti) up to the royal flush's rain of gold.
 import type { Frame } from '../frames';
 import { SUIT_COLORS, UI } from '../uiConfig';
 import type { FxCanvas } from './fxCanvas';
 
 const GOLD = '#FFD54A', WHITE = '#FFFFFF', PINK = '#FF4F9A', CYAN = '#5BE7FF', AMBER = '#FF9A3C';
-const TIER_COLORS = [[GOLD, WHITE], [GOLD, CYAN, WHITE], [GOLD, AMBER, WHITE, PINK], [GOLD, PINK, CYAN, WHITE], [GOLD, WHITE, AMBER, PINK, CYAN]];
+const TIER_COLORS = [
+  [GOLD, WHITE], [GOLD, CYAN, WHITE], [GOLD, AMBER, WHITE, PINK], [GOLD, PINK, CYAN, WHITE],
+  [GOLD, CYAN, WHITE, PINK], [PINK, GOLD, CYAN, WHITE], [GOLD, WHITE, AMBER, PINK, CYAN],
+];
 
 export interface Place {
   readonly at: (p: { row: number; col: number }) => { x: number; y: number };
@@ -54,15 +57,28 @@ export function playFrame(fx: FxCanvas, frame: Frame, place: Place): void {
       burst(fx, x, y, { count: 16 + tier * 14, speed: cell * F.speed * 1.8, size: cell * 0.07, colors: [WHITE, GOLD], lifeMs: F.lifeMs, shape: 'spark', delayMs: hit });
       fx.ring({ x, y, fromRadius: cell * 0.2, toRadius: cell * (2.4 + tier), width: cell * 0.05, color: WHITE, lifeMs: F.ringLifeMs, delayMs: hit + 80 });
     }
+    // Full house and up: a jackpot. Light rays and casino chips raining over the table.
     if (tier >= 2) {
-      fx.rays({ x, y, count: 12 + tier * 2, length: cell * (3 + tier), color: colors[1], lifeMs: 700 + tier * 200, turnsPerSecond: 0.4 });
+      fx.rays({ x, y, count: 12 + tier * 2, length: cell * (3 + tier), color: colors[1], lifeMs: 900 + tier * 200, turnsPerSecond: 0.4 });
       burst(fx, x, y, { count: 40, speed: cell * F.speed * 0.9, size: cell * 0.12, colors, lifeMs: 1000, gravity: cell * 6, delayMs: hit });
+      chipRain(fx, place, hit, 26 + (tier - 2) * 14);
     }
+    // Quads and up: beams across the whole board through the hand, a triple shock ring.
     if (tier >= 3) {
+      beams(fx, place, x, y, hit);
       [GOLD, PINK, CYAN].forEach((color, i) => fx.ring({ x, y, fromRadius: cell * 0.4, toRadius: cell * (6 - i), width: cell * (0.18 - i * 0.04), color, lifeMs: 800, delayMs: hit + i * 90 }));
       fx.rays({ x, y, count: 20, length: cell * 9, color: GOLD, lifeMs: 1300, turnsPerSecond: -0.25 });
     }
-    if (tier >= 4) goldRain(fx, place, hit);
+    // Straight flush and up: a wave in the suit's colour sweeps the screen, then fireworks.
+    if (tier >= 4) {
+      const real = frame.ghosts.find((g) => !g.card.joker);
+      const color = real ? suitColor(real.card.suit) : CYAN;
+      [color, WHITE, color, GOLD].forEach((c, i) => fx.ring({ x, y, fromRadius: cell * 0.5, toRadius: cell * (14 - i * 2), width: cell * (0.5 - i * 0.08), color: c, lifeMs: 900, delayMs: hit + i * 120 }));
+      fireworks(fx, place, hit + 250, tier >= 5 ? 9 : 5);
+    }
+    // Five of a kind and up: confetti over everything.
+    if (tier >= 5) confetti(fx, place, hit, tier >= 6 ? 160 : 110);
+    if (tier >= 6) goldRain(fx, place, hit);
   } else if (frame.kind === 'blast' && frame.blast) {
     const o = at(frame.blast.origin);
     const kind = frame.blast.kind;
@@ -97,6 +113,54 @@ export function playFrame(fx: FxCanvas, frame: Frame, place: Place): void {
 /** A suit's colour on the dark felt (spades are drawn white). */
 function suitColor(suit: number): string {
   return suit === 0 ? WHITE : SUIT_COLORS[suit];
+}
+
+const CHIP_COLORS = ['#D0182C', '#1D5FD6', '#13883F', '#16181D', '#FFC93C', '#7A3BD8'];
+
+/** Casino chips tumbling down over the board. */
+function chipRain(fx: FxCanvas, place: Place, delayMs: number, count: number): void {
+  for (let i = 0; i < count; i++) {
+    fx.particle({
+      x: rnd(place.boardLeft - place.cell, place.boardLeft + place.boardWidth + place.cell), y: rnd(-place.cell * 3, place.boardTop),
+      vx: rnd(-50, 50), vy: rnd(80, 280), size: place.cell * rnd(0.14, 0.22), color: CHIP_COLORS[i % CHIP_COLORS.length],
+      lifeMs: rnd(1300, 2000), gravity: place.cell * 9, drag: 0.7, delayMs: delayMs + rnd(0, 500), shape: 'chip',
+    });
+  }
+}
+
+/** Light beams along the row and the column of a point, the full width and height of the board. */
+function beams(fx: FxCanvas, place: Place, x: number, y: number, delayMs: number): void {
+  const cell = place.cell;
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    for (let i = 0; i < 30; i++) {
+      fx.particle({ x, y, vx: dx * cell * rnd(10, 22), vy: dy * cell * rnd(10, 22) + rnd(-15, 15), size: cell * rnd(0.06, 0.13), color: i % 3 ? GOLD : WHITE, lifeMs: 650, drag: 0.25, shape: 'spark', delayMs });
+    }
+  }
+}
+
+/** Firework shells bursting at random points over and around the board. */
+function fireworks(fx: FxCanvas, place: Place, delayMs: number, shells: number): void {
+  const palette = [[GOLD, WHITE], [PINK, WHITE], [CYAN, WHITE], [AMBER, GOLD], ['#7CFF6B', WHITE]];
+  for (let i = 0; i < shells; i++) {
+    const x = rnd(place.boardLeft, place.boardLeft + place.boardWidth);
+    const y = rnd(place.boardTop - place.cell, place.boardTop + place.boardHeight * 0.7);
+    const colors = palette[i % palette.length];
+    const at = delayMs + i * 170 + rnd(0, 80);
+    burst(fx, x, y, { count: 34, speed: place.cell * 5.5, size: place.cell * 0.07, colors, lifeMs: 1000, gravity: place.cell * 3, shape: 'spark', delayMs: at });
+    fx.ring({ x, y, fromRadius: place.cell * 0.1, toRadius: place.cell * 1.6, width: place.cell * 0.05, color: colors[0], lifeMs: 500, delayMs: at });
+  }
+}
+
+/** Paper confetti drifting down over the whole screen. */
+function confetti(fx: FxCanvas, place: Place, delayMs: number, count: number): void {
+  const colors = [GOLD, PINK, CYAN, WHITE, AMBER, '#7CFF6B', '#7A3BD8'];
+  for (let i = 0; i < count; i++) {
+    fx.particle({
+      x: rnd(0, place.width), y: rnd(-place.cell * 3, place.boardTop * 0.8), vx: rnd(-60, 60), vy: rnd(40, 180),
+      size: place.cell * rnd(0.07, 0.12), color: colors[i % colors.length], lifeMs: rnd(1800, 2800), gravity: place.cell * 3, drag: 0.5,
+      delayMs: delayMs + rnd(0, 900), shape: 'confetti',
+    });
+  }
 }
 
 /** Gold coins and confetti falling over the whole board. */

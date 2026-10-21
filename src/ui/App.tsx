@@ -10,7 +10,7 @@ import { currentStreak, dailyDate, dailySeed, finishOfficial, loadDaily, msUntil
 import { vibrate } from './haptics';
 import { loadBest, loadFlag, saveBest, saveFlag } from './storage';
 import { BLAST_RULES, HAND_EXAMPLES, HAND_NAMES, HAND_RULES, POWER_RULES, STRINGS } from './strings';
-import { HAND_TIER, UI } from './uiConfig';
+import { BIG_TIER, HAND_TIER, ROYAL_TIER, UI } from './uiConfig';
 import { useGame, type Floater } from './useGame';
 import { DEFAULT_CONFIG } from '../engine/config';
 import { dailyRanking, LEADERBOARD, leaderboardEnabled } from '../leaderboard/config';
@@ -143,7 +143,7 @@ export function App() {
       <header className="hud">
         <div className="hud-cell hud-score">
           <span className="hud-label">{STRINGS.score}</span>
-          <span className="hud-value">{fmt(state.score)}</span>
+          <RollingScore value={state.score} />
         </div>
         <div className={`hud-cell hud-clock ${left <= UI.clockWarningMs && phase === 'playing' ? 'warn' : ''}`}>
           <span className="hud-value clock">{clockText(left)}</span>
@@ -173,7 +173,7 @@ export function App() {
             onReject={onReject}
           />
           <Floaters floaters={game.floaters} rows={state.config.rows} cols={state.config.cols} />
-          {game.banner && game.banner.tier < 4 && <HandBanner key={game.banner.id} hand={game.banner.hand} points={game.banner.points} />}
+          {game.banner && game.banner.tier < ROYAL_TIER && <HandBanner key={game.banner.id} hand={game.banner.hand} points={game.banner.points} />}
         </div>
       </main>
 
@@ -197,7 +197,8 @@ export function App() {
         })}
       </footer>
 
-      {game.banner?.tier === 4 && <RoyalTakeover key={game.banner.id} />}
+      {game.banner && game.banner.tier >= 5 && game.banner.tier < ROYAL_TIER && <div key={`dim-${game.banner.id}`} className="big-dim" style={{ animationDuration: `${UI.anim.banner[game.banner.tier]}ms` }} />}
+      {game.banner?.tier === ROYAL_TIER && <RoyalTakeover key={game.banner.id} />}
 
       {phase === 'countdown' && game.countdown !== null && (
         <div className="overlay countdown" key={game.countdown}>
@@ -307,6 +308,7 @@ function HandBanner({ hand, points }: { hand: HandType; points: number }) {
     <div className={`hand-banner tier-${tier}`} style={{ animationDuration: `${UI.anim.banner[tier]}ms` }}>
       <span className="hand-name">{HAND_NAMES[hand]}</span>
       {tier >= 1 && <span className="hand-points">{STRINGS.points(points)}</span>}
+      {tier >= BIG_TIER && <span className="hand-burst" aria-hidden="true" />}
     </div>
   );
 }
@@ -461,6 +463,33 @@ function RankingSheet({ day, onClose }: { day: string; onClose: () => void }) {
       </div>
     </div>
   );
+}
+
+/** The score in the HUD rolls up to its new value, like a slot machine; a big win rolls longer and glows. */
+function RollingScore({ value }: { value: number }) {
+  const [shown, setShown] = useState(value);
+  const [big, setBig] = useState(false);
+  const from = useRef(value);
+  useEffect(() => {
+    const start = from.current;
+    const delta = value - start;
+    if (delta <= 0) { from.current = value; setShown(value); return; }
+    const ms = Math.min(UI.roll.maxMs, UI.roll.minMs + delta * UI.roll.msPerPoint);
+    setBig(delta >= UI.roll.bigPoints);
+    let raf = 0;
+    const t0 = performance.now();
+    const step = (now: number) => {
+      const t = Math.min(1, (now - t0) / ms);
+      const v = Math.round(start + delta * (1 - (1 - t) ** 3));
+      from.current = v;
+      setShown(v);
+      if (t < 1) raf = requestAnimationFrame(step);
+      else setBig(false);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [value]);
+  return <span className={`hud-value ${big ? 'rolling' : ''}`}>{fmt(shown)}</span>;
 }
 
 function useCountUp(target: number, ms: number): number {

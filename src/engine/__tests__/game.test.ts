@@ -19,8 +19,8 @@ describe('a played hand', () => {
     expect(formatBoard(state.board)).toBe('AS AH AD\n2S 3S 4S\n5H 6H 8C');
     const hand = events.find((e) => e.type === 'hand')!;
     expect(hand.type === 'hand' && hand.hand).toBe('trips');
-    // 160 + (7 × 3) × 1 pip
-    expect(state.score).toBe(181);
+    // 150 + (7 × 3) × 1 pip
+    expect(state.score).toBe(171);
   });
 
   it('works traced in any order and through diagonals', () => {
@@ -53,7 +53,7 @@ describe('a played hand', () => {
     const config = makeConfig({ ...noShuffle });
     const s = newGame({ board, config, queue: parseCards('9S 9H 9D 9C 9S 9H') });
     const first = applyMove(s, { path: [P(2, 0), P(2, 1), P(2, 2)], atMs: 1000 });
-    expect(first.state.score).toBe(362);
+    expect(first.state.score).toBe(342);
     const second = applyMove(first.state, { path: [P(0, 0), P(0, 1), P(0, 2)], atMs: 2000 });
     const combo = second.events.find((e) => e.type === 'combo');
     expect(combo && combo.type === 'combo' && combo.multiplier).toBe(1.2);
@@ -162,7 +162,7 @@ describe('variety: three different hands in a row', () => {
     const done = applyMove({ ...s, variety: ['twoPair', 'flush'] }, { path: [P(2, 0), P(2, 1), P(2, 2)] });
     expect(done.state.variety).toEqual([]);
     expect(done.events.some((e) => e.type === 'variety')).toBe(true);
-    expect(done.state.score).toBe(181 * 2);
+    expect(done.state.score).toBe(171 * 2);
   });
 
   it('trips: one of the new cards is a joker', () => {

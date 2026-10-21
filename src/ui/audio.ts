@@ -107,8 +107,9 @@ export function playRung(rung: number, valid: boolean): void {
 }
 
 /**
- * The stinger of a hand: tier 0 (trips) is a short stab; each tier adds weight, up to the royal
- * flush's fanfare. `combo` lifts the pitch a little.
+ * The stinger of a hand: tier 0 (two pair, trips) is a short stab; each tier adds weight. The full
+ * house hits the jackpot (a cascade of chips), quads and the straight flush get a riser and brass, five
+ * of a kind and the royal flush the whole fanfare. `combo` lifts the pitch a little.
  */
 export function playHand(tier: number, combo = 1): void {
   const pitch = 1 + Math.min(combo - 1, 4) * 0.06;
@@ -122,8 +123,10 @@ export function playHand(tier: number, combo = 1): void {
       boom(150, 0.5, 0, 560), cymbal(0, 600, 0.1),
       ...stab([C4, E5, G5, C6], 0, 650, 0.035), ...stab([C4 / 2], 0, 600, 0.05, 'square'),
       ...arp([C6, E6, G6, C7], 50, 0.05, 120), ...chips(12, 180),
+      // Jackpot: coins pouring out.
+      ...chips(26, 420, 0.07), ...arp([G6, C7, G6, C7, E6 * 2], 70, 0.035, 500),
     );
-  } else if (tier === 3) {
+  } else if (tier === 3 || tier === 4) {
     notes.push(
       { wave: 'sawtooth', from: 110, to: 880, ms: 300, gain: 0.07 },
       { wave: 'noise', from: 400, to: 8000, ms: 300, gain: 0.09, filter: 'bandpass', q: 0.8, attackMs: 150 },
@@ -131,8 +134,10 @@ export function playHand(tier: number, combo = 1): void {
       ...stab([C4, G4, E5, G5, C6], 280, 900, 0.035), ...stab([F4, A4, F5, A5], 760, 400, 0.03),
       ...stab([G4, B5, D5, G5], 980, 700, 0.035), ...arp([C6, E6, G6, C7, E6 * 2], 45, 0.05, 300), ...chips(18, 400),
     );
+    // The straight flush: fireworks popping after the hit.
+    if (tier === 4) notes.push(...[1300, 1500, 1650, 1850].map((d, i) => boom(220 + i * 40, 0.25, d, 260)), ...[1300, 1500, 1650, 1850].map((d) => cymbal(d, 300, 0.07)));
   } else {
-    // The royal flush: a riser, then a brass fanfare over a big boom, chips raining down.
+    // Five of a kind and the royal flush: a riser, then a brass fanfare over a big boom, chips raining down.
     notes.push(
       { wave: 'sawtooth', from: 80, to: 1200, ms: 500, gain: 0.07 },
       { wave: 'noise', from: 300, to: 9000, ms: 500, gain: 0.1, filter: 'bandpass', q: 0.8, attackMs: 300 },

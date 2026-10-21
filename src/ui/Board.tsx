@@ -8,7 +8,7 @@ import { CardBack, CardFace } from './CardFace';
 import { FxLayer } from './fx/FxLayer';
 import { dealDelay, type Frame, type Ghost } from './frames';
 import { cellCentre, cellsAlong, extendPath, hitCell, type CellSize, type Point } from './trace';
-import { UI } from './uiConfig';
+import { ROYAL_TIER, UI } from './uiConfig';
 
 interface BoardProps {
   readonly board: BoardData;
@@ -214,7 +214,7 @@ export function Board({ board, frame, config, tokens, hint, enabled, faceDown, o
     <div className="board" ref={boardRef}>
       <div
         ref={areaRef}
-        className="board-area"
+        className={`board-area ${frame.kind === 'collect' && tier >= ROYAL_TIER ? 'all-gold' : ''}`}
         style={{ aspectRatio: `${cols} / ${rows * UI.cellAspect}` }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -305,11 +305,13 @@ function GhostCard({ ghost, cell, duration, tier }: { ghost: Ghost; cell: CellSi
       const glow = tier >= 2 ? 'drop-shadow(0 0 14px #FFD54A) brightness(1.25)' : 'drop-shadow(0 0 8px #FFF3B0) brightness(1.15)';
       const lift = 1.12 + tier * 0.05;
       const stagger = ghost.index * Math.min(50, duration / 12);
+      // Five of a kind and the royal flush: the cards whirl round as they meet.
+      const whirl = tier >= 5 ? 720 : 0;
       el.animate([
         { transform: `${from} scale(1) rotate(0deg)`, filter: 'none', opacity: 1 },
         { transform: `${from} scale(${lift}) rotate(${ghost.index % 2 ? 6 : -6}deg)`, filter: glow, opacity: 1, offset: 0.35 },
-        { transform: `${to} scale(${0.9 + tier * 0.1}) rotate(0deg)`, filter: glow, opacity: 1, offset: 0.72 },
-        { transform: `${to} scale(${1.5 + tier * 0.2}) rotate(0deg)`, filter: 'brightness(3)', opacity: 0 },
+        { transform: `${to} scale(${0.9 + tier * 0.1}) rotate(${whirl}deg)`, filter: glow, opacity: 1, offset: 0.72 },
+        { transform: `${to} scale(${1.5 + tier * 0.2}) rotate(${whirl}deg)`, filter: 'brightness(3)', opacity: 0 },
       ], { duration: duration - stagger, delay: stagger, easing: 'cubic-bezier(.3,0,.3,1)', fill: 'both' });
     } else {
       const spin = (ghost.card.id % 2 ? 1 : -1) * (360 + (ghost.index % 3) * 120);

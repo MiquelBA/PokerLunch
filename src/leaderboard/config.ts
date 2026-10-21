@@ -7,7 +7,7 @@ export const LEADERBOARD = {
   anonKey: (import.meta.env.VITE_LEADERBOARD_KEY as string | undefined) ??
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdqZmtmbXF3ZWlteWp2YXBkb29mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0ODQ5ODMsImV4cCI6MjEwODA2MDk4M30.x4NCW3kJkXyh1jE3WIHjvEiECMtOTYAv3Z_lemlq4K4',
   /** The general ranking (free games). Change the version when scoring changes, for a fresh ranking. */
-  rankingId: 'poker-v2',
+  rankingId: 'poker-v3',
   /** How many players the ranking shows. */
   topCount: 10,
   /** Give up on the network after this long; the game never waits on it. */
@@ -22,7 +22,7 @@ export function leaderboardEnabled(): boolean {
   return Boolean(LEADERBOARD.url && LEADERBOARD.anonKey);
 }
 
-/** A day's challenge ranking: one score per player, only the first game (poker-v2-d20261021). */
+/** A day's challenge ranking: one score per player, only the first game (poker-v3-d20261021). */
 export function dailyRanking(date: string): string {
   return `${LEADERBOARD.rankingId}-d${date.replaceAll('-', '')}`;
 }

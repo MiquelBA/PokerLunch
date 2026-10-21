@@ -18,7 +18,7 @@ Les regles són a [REGLES.md](REGLES.md). Tots els valors de joc són a `src/eng
 Com a Orca Lunch: `src/engine/` és TypeScript pur i determinista (`newGame`, `applyMove`, `tick`, `findHands`), i la interfície (`src/ui/`) només reprodueix els esdeveniments del motor. El so és sintetitzat (Web Audio) i els efectes van en un canvas sobre el tauler.
 
 ## Classificació
-Fa servir el mateix projecte de Supabase que Orca Lunch (taula `scores`, vista `leaderboard`, límits i noms prohibits), amb els seus propis rànquings: `poker-v2` (general) i `poker-v2-dAAAAMMDD` (repte de cada dia). No cal executar cap SQL. Detalls a [supabase/README.md](supabase/README.md).
+Fa servir el mateix projecte de Supabase que Orca Lunch (taula `scores`, vista `leaderboard`, límits i noms prohibits), amb els seus propis rànquings: `poker-v3` (general) i `poker-v3-dAAAAMMDD` (repte de cada dia). No cal executar cap SQL. Detalls a [supabase/README.md](supabase/README.md).
 
 ## Cartes
 Sprite SVG a `src/ui/cards/` (cartes CC0 d'Adrian Kennard i comodí LGPL de SVG-cards); detalls a [src/ui/cards/README.md](src/ui/cards/README.md).
