@@ -1,7 +1,7 @@
 // A small canvas effects engine: particles, shock rings, light rays and vortices. Purely decorative:
 // it runs its own animation frame loop only while something is alive, and never affects the game.
 
-export type ParticleShape = 'dot' | 'spark' | 'bubble' | 'chip' | 'confetti';
+export type ParticleShape = 'dot' | 'spark' | 'bubble' | 'chip' | 'confetti' | 'glyph';
 
 export interface ParticleSpec {
   x: number;
@@ -17,6 +17,8 @@ export interface ParticleSpec {
   /** Fraction of speed kept per second (1 = no drag). */
   drag?: number;
   shape?: ParticleShape;
+  /** The character a 'glyph' particle draws (a suit symbol). */
+  glyph?: string;
   /** Circles a centre while moving inwards (whirlpool). */
   orbit?: { cx: number; cy: number; turnsPerSecond: number; inwardPerSecond: number };
 }
@@ -205,6 +207,20 @@ export class FxCanvas {
       ctx.scale(1, Math.max(0.2, Math.abs(Math.sin(turn * 1.7))));
       ctx.fillStyle = s.color;
       ctx.fillRect(-s.size, -s.size * 0.45, s.size * 2, s.size * 0.9);
+      ctx.restore();
+    } else if (s.shape === 'glyph') {
+      // A suit symbol that swells in, rocks gently and fades.
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(Math.sin(p.angle + t * 6) * 0.35);
+      ctx.scale(Math.min(1, t * 6), Math.min(1, t * 6));
+      ctx.fillStyle = s.color;
+      ctx.shadowColor = s.color;
+      ctx.shadowBlur = s.size * 0.6;
+      ctx.font = `bold ${s.size * 2}px system-ui, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(s.glyph ?? '♠', 0, 0);
       ctx.restore();
     } else if (s.shape === 'bubble') {
       ctx.strokeStyle = s.color;

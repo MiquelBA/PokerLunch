@@ -222,7 +222,7 @@ export function useGame(onOver: (state: GameState) => void): GameApi {
     const tier = HAND_TIER[handEvent.hand];
     const combo = events.find((e) => e.type === 'combo');
     const comboCount = combo?.type === 'combo' ? combo.count : 1;
-    playHand(tier, comboCount);
+    playHand(tier, comboCount, handEvent.hand);
     const bannerId = nextFloaterId++;
     setBanner({ id: bannerId, hand: handEvent.hand, tier, points: handEvent.points });
     window.setTimeout(() => setBanner((b) => (b?.id === bannerId ? null : b)), UI.anim.banner[tier]);

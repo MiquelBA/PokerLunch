@@ -57,6 +57,12 @@ export function playFrame(fx: FxCanvas, frame: Frame, place: Place): void {
       burst(fx, x, y, { count: 16 + tier * 14, speed: cell * F.speed * 1.8, size: cell * 0.07, colors: [WHITE, GOLD], lifeMs: F.lifeMs, shape: 'spark', delayMs: hit });
       fx.ring({ x, y, fromRadius: cell * 0.2, toRadius: cell * (2.4 + tier), width: cell * 0.05, color: WHITE, lifeMs: F.ringLifeMs, delayMs: hit + 80 });
     }
+    // The straight and the flush each get a show of their own.
+    if (frame.hand.hand === 'straight') straightRun(fx, place, path, hit);
+    if (frame.hand.hand === 'flush') {
+      const real = frame.ghosts.find((g) => !g.card.joker);
+      suitFountain(fx, place, x, y, real ? real.card.suit : 1, hit);
+    }
     // Full house and up: a jackpot. Light rays and casino chips raining over the table.
     if (tier >= 2) {
       fx.rays({ x, y, count: 12 + tier * 2, length: cell * (3 + tier), color: colors[1], lifeMs: 900 + tier * 200, turnsPerSecond: 0.4 });
@@ -113,6 +119,59 @@ export function playFrame(fx: FxCanvas, frame: Frame, place: Place): void {
 /** A suit's colour on the dark felt (spades are drawn white). */
 function suitColor(suit: number): string {
   return suit === 0 ? WHITE : SUIT_COLORS[suit];
+}
+
+const SUIT_GLYPHS = ['♠', '♥', '♦', '♣'];
+
+/**
+ * The straight: a light runs card to card along the trace, like a marquee, then a streak of light
+ * sweeps the whole width of the board through the hand.
+ */
+function straightRun(fx: FxCanvas, place: Place, path: readonly { row: number; col: number }[], hit: number): void {
+  const cell = place.cell;
+  const step = Math.min(90, (hit * 0.9) / Math.max(1, path.length));
+  path.forEach((p, i) => {
+    const c = place.at(p);
+    const delayMs = i * step;
+    fx.ring({ x: c.x, y: c.y, fromRadius: cell * 0.2, toRadius: cell * 0.85, width: cell * 0.09, color: i % 2 ? CYAN : WHITE, lifeMs: 380, delayMs });
+    burst(fx, c.x, c.y, { count: 10, speed: cell * 3, size: cell * 0.06, colors: [CYAN, WHITE], lifeMs: 360, shape: 'spark', delayMs });
+    const next = path[i + 1];
+    if (!next) return;
+    // A comet from this card to the next.
+    const n = place.at(next);
+    for (let k = 0; k < 6; k++) {
+      fx.particle({ x: c.x, y: c.y, vx: ((n.x - c.x) / step) * 1000 * (0.8 + k * 0.05), vy: ((n.y - c.y) / step) * 1000 * (0.8 + k * 0.05), size: cell * (0.12 - k * 0.012), color: k ? CYAN : WHITE, lifeMs: step * 1.2, delayMs: delayMs + k * 8, shape: 'spark' });
+    }
+  });
+  // The sweep: streaks shooting left to right across the board.
+  const y = place.at(path[path.length - 1]).y;
+  for (let i = 0; i < 26; i++) {
+    fx.particle({
+      x: place.boardLeft - cell, y: y + rnd(-cell * 1.2, cell * 1.2), vx: cell * rnd(16, 30), vy: 0,
+      size: cell * rnd(0.05, 0.12), color: [WHITE, CYAN, GOLD][i % 3], lifeMs: 620, delayMs: hit + rnd(0, 140), shape: 'spark',
+    });
+  }
+  fx.ring({ x: place.at(path[path.length - 1]).x, y, fromRadius: cell * 0.3, toRadius: cell * 3.6, width: cell * 0.12, color: CYAN, lifeMs: 620, delayMs: hit });
+}
+
+/**
+ * The flush: a fountain of the suit's symbol bursts out of the hand and falls back over the board,
+ * with a double ring in the suit's colour.
+ */
+function suitFountain(fx: FxCanvas, place: Place, x: number, y: number, suit: number, hit: number): void {
+  const cell = place.cell;
+  const color = suitColor(suit);
+  const glyph = SUIT_GLYPHS[suit];
+  for (let i = 0; i < 22; i++) {
+    const a = -Math.PI / 2 + rnd(-1.3, 1.3);
+    const v = cell * rnd(3, 5.5);
+    fx.particle({
+      x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, size: cell * rnd(0.16, 0.3), color: i % 4 ? color : GOLD,
+      lifeMs: rnd(1100, 1500), gravity: cell * 9, drag: 0.6, delayMs: hit + rnd(0, 160), shape: 'glyph', glyph,
+    });
+  }
+  [color, GOLD].forEach((c, i) => fx.ring({ x, y, fromRadius: cell * 0.3, toRadius: cell * (4 - i), width: cell * 0.14, color: c, lifeMs: 700, delayMs: hit + i * 110 }));
+  fx.rays({ x, y, count: 10, length: cell * 2.2, color: GOLD, lifeMs: 700, turnsPerSecond: 0.35 });
 }
 
 const CHIP_COLORS = ['#D0182C', '#1D5FD6', '#13883F', '#16181D', '#FFC93C', '#7A3BD8'];

@@ -36,6 +36,8 @@ L'ordre i els punts segueixen el pòquer real: com més difícil, molt més val.
 | Escala reial | 20.000 | ∞ | +5 s | Rebenta tot el tauler | Punts ×2 |
 
 ### Espectacle per nivell
+- **Escala**: una llum corre carta a carta pel traç i una ràfega creua el tauler, amb una escala musical que puja.
+- **Color**: una font de símbols del pal (♥ ♦ ♠ ♣) que salta i cau sobre el tauler, amb un acord brillant.
 - **Full**: jackpot, pluja de fitxes de casino i el marcador roda com una escurabutxaques.
 - **Pòquer**: feixos de llum, triple ona, sacsejada forta i espurnes.
 - **Escala de color**: ona gegant del color del pal i focs artificials.

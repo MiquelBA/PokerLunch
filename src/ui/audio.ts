@@ -111,11 +111,23 @@ export function playRung(rung: number, valid: boolean): void {
  * house hits the jackpot (a cascade of chips), quads and the straight flush get a riser and brass, five
  * of a kind and the royal flush the whole fanfare. `combo` lifts the pitch a little.
  */
-export function playHand(tier: number, combo = 1): void {
+export function playHand(tier: number, combo = 1, hand?: string): void {
   const pitch = 1 + Math.min(combo - 1, 4) * 0.06;
   const notes: Note[] = [];
   if (tier === 0) {
     notes.push(...stab([C5, E5, G5], 0, 220, 0.03, 'triangle'), ...chips(4, 80), boom(140, 0.18, 0, 220));
+  } else if (hand === 'straight') {
+    // A run up the scale, one note per card, and a swoosh.
+    notes.push(
+      ...arp([C5, D5, E5, F5, G5, A5, B5, C6], 42, 0.08), ...stab([C5, E5, G5, C6], 340, 380, 0.028),
+      { wave: 'noise', from: 600, to: 7000, ms: 380, gain: 0.06, filter: 'bandpass', q: 1.2, attackMs: 120 }, boom(130, 0.3, 340, 360),
+    );
+  } else if (hand === 'flush') {
+    // A shimmering chord in one colour: a glide up into a held major seventh, with sparkles.
+    notes.push(
+      ...stab([C5, E5, G5, B5], 60, 620, 0.026, 'triangle'), { wave: 'sine', from: C5, to: C6, ms: 260, gain: 0.05 },
+      ...arp([G6, E6, C7, G6, E6 * 2], 60, 0.03, 200), ...chips(7, 120), boom(120, 0.3, 40, 360),
+    );
   } else if (tier === 1) {
     notes.push(...arp([C5, E5, G5, C6], 55, 0.08), ...stab([C5, G5], 0, 300, 0.025), ...chips(7, 120), boom(130, 0.28, 0, 320));
   } else if (tier === 2) {
