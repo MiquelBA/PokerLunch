@@ -82,6 +82,11 @@ export function Board({ board, frame, config, tokens, hint, guide, enabled, face
     for (const t of frame.tiles) {
       const el = tileEls.current.get(t.card.id);
       const from = prevPos.current.get(t.card.id) ?? frame.entering.get(t.card.id);
+      if (el && from && samePos(from, t.pos) && !prevPos.current.has(t.card.id) && frame.duration) {
+        // Dealt in place (under ice or a block): it grows out of the felt.
+        el.animate([{ transform: `${px(t.pos, cell)} scale(0.2)`, opacity: 0 }, { transform: `${px(t.pos, cell)} scale(1.08)`, opacity: 1, offset: 0.7 }, { transform: px(t.pos, cell) }], { duration: frame.duration, easing: 'ease-out' });
+        continue;
+      }
       if (!el || !from || samePos(from, t.pos) || !frame.duration) continue;
       const to = px(t.pos, cell);
       const keyframes: Keyframe[] = frame.kind === 'fall'

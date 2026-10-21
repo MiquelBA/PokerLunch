@@ -42,6 +42,8 @@ export const UI = {
   anim: {
     collect: [360, 440, 1000, 1250, 1500, 1800, 2200] as readonly number[],
     blast: 560,
+    /** Poker Tour: ice and blocks taking a hit. */
+    crack: 300,
     fall: 340,
     shuffle: 520,
     /** New game: one card dealt every dealStep ms, each falling for dealCard ms. */

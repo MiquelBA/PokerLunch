@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { allLevels, currentLevelId, isUnlocked, totalStars, type TourProgress } from '../../engine/tour/progress';
 import { progress as goalsOf, type TourRun } from '../../engine/tour/run';
 import type { Level, Tour } from '../../engine/tour/schema';
+import { playSound } from '../audio';
 import { CardFace } from '../CardFace';
+import { vibrate } from '../haptics';
 import { goalIcon, goalLabel, goalShort, TOUR_STRINGS as T } from './strings';
 
 const fmt = (v: number) => v.toLocaleString('ca');
@@ -133,6 +135,18 @@ export function TourResult({ run, number, nextLevel, newTour, onNext, onRetry, o
 }) {
   const won = run.status === 'won';
   const [shown, setShown] = useState(0);
+  useEffect(() => {
+    // A fanfare and one ding per star as each lands; a lost level gets the Classic ending.
+    if (run.status !== 'won') {
+      playSound('gameOver');
+      vibrate('gameOver');
+      return;
+    }
+    playSound('levelWon');
+    vibrate('big');
+    const timers = Array.from({ length: run.stars }, (_, i) => window.setTimeout(() => playSound('star', 1 + i * 0.12), 520 + i * 260));
+    return () => timers.forEach(clearTimeout);
+  }, [run]);
   useEffect(() => {
     // The score counts up.
     const target = run.game.score;

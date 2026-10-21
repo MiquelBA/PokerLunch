@@ -7,7 +7,8 @@
 
 export type SoundName =
   | 'chips' | 'blast' | 'golden' | 'combo' | 'timeBonus' | 'invalid' | 'shuffle' | 'warning'
-  | 'gameOver' | 'newBest' | 'count' | 'go' | 'land' | 'power' | 'deal' | 'flip';
+  | 'gameOver' | 'newBest' | 'count' | 'go' | 'land' | 'power' | 'deal' | 'flip'
+  | 'ice' | 'crack' | 'star' | 'levelWon';
 
 /** One voice: an oscillator, or filtered noise ('noise') whose filter frequency glides from → to. */
 export interface Note {
@@ -81,6 +82,17 @@ const RECIPES: Readonly<Record<SoundName, readonly Note[]>> = {
   // A card turning over.
   flip: [{ wave: 'noise', from: 1500, to: 5200, ms: 45, gain: 0.05, filter: 'bandpass', q: 2.5 }],
   gameOver: arp([G5, E5, C5, G4], 120, 0.09),
+  // Poker Tour. Ice cracking: a glassy tinkle over a crunch.
+  ice: [
+    { wave: 'noise', from: 7000, to: 2500, ms: 90, gain: 0.09, filter: 'bandpass', q: 4 },
+    { wave: 'sine', from: C7, ms: 140, delayMs: 20, gain: 0.04 },
+    { wave: 'sine', from: G6 * 1.5, ms: 120, delayMs: 60, gain: 0.03 },
+  ],
+  // A block taking a hit: a dull knock and chips.
+  crack: [{ wave: 'sine', from: 180, to: 70, ms: 120, gain: 0.18 }, ...chips(3, 40, 0.07)],
+  // A star landing on the result.
+  star: [{ wave: 'triangle', from: E6, ms: 160, gain: 0.08 }, { wave: 'sine', from: C7, ms: 260, delayMs: 50, gain: 0.05 }, ...chips(2, 30, 0.05)],
+  levelWon: [...stab([C5, E5, G5], 0, 260, 0.04, 'square'), ...arp([C5, E5, G5, C6, E6], 80, 0.08, 120), boom(110, 0.3, 120, 500), cymbal(120, 700, 0.08)],
   newBest: [...arp([C5, E5, G5, C6, E6, G6], 70, 0.09), boom(110, 0.3, 0, 500), ...chips(10, 300)],
 };
 

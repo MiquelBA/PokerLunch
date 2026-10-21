@@ -40,6 +40,7 @@ function burst(fx: FxCanvas, x: number, y: number, o: { count: number; speed: nu
 export function playFrame(fx: FxCanvas, frame: Frame, place: Place): void {
   const { cell, at } = place;
   const F = UI.fx;
+  if (frame.rush?.index === 0) playRushStart(fx, place);
   if (frame.kind === 'collect' && frame.hand) {
     const { tier, centre, path } = frame.hand;
     const { x, y } = at(centre);
@@ -103,6 +104,7 @@ export function playFrame(fx: FxCanvas, frame: Frame, place: Place): void {
       burst(fx, c.x, c.y, { count: 10, speed: cell * 4, size: cell * 0.08, colors: [color, GOLD], lifeMs: 520, delayMs: g.index * 18 });
       fx.ring({ x: c.x, y: c.y, fromRadius: cell * 0.1, toRadius: cell * 0.9, width: cell * 0.06, color: GOLD, lifeMs: 420, delayMs: g.index * 18 });
     }
+    if (kind === 'bomb') fireball(fx, place, o.x, o.y);
     if (kind === 'storm') {
       // A storm of colour: rings in the suit's colour wash over the board.
       const color = frame.ghosts[0] ? suitColor(frame.ghosts[0].card.suit) : CYAN;
@@ -111,9 +113,63 @@ export function playFrame(fx: FxCanvas, frame: Frame, place: Place): void {
     }
     fx.ring({ x: o.x, y: o.y, fromRadius: cell * 0.3, toRadius: cell * (kind === 'board' ? 9 : 5), width: cell * 0.2, color: WHITE, lifeMs: 640 });
     if (kind === 'board') goldRain(fx, place, 0);
+  } else if (frame.kind === 'crack' && frame.damage) {
+    for (const d of frame.damage) {
+      const c = at(d.pos);
+      if (d.obstacle === 'ice') iceShards(fx, cell, c.x, c.y, d.broken);
+      else splinters(fx, cell, c.x, c.y, d.broken);
+    }
   } else if (frame.kind === 'shuffle') {
     fx.ring({ x: place.boardLeft + place.boardWidth / 2, y: place.boardTop + place.boardHeight / 2, fromRadius: cell * 4, toRadius: cell * 0.5, width: cell * 0.1, color: CYAN, lifeMs: 500 });
   }
+}
+
+/** Poker Tour: the first bomb of the Rush sweeps the board with a neon ring. */
+function playRushStart(fx: FxCanvas, place: Place): void {
+  const x = place.boardLeft + place.boardWidth / 2, y = place.boardTop + place.boardHeight / 2;
+  [PINK, CYAN, GOLD].forEach((color, i) => fx.ring({ x, y, fromRadius: place.cell * 0.5, toRadius: place.cell * (7 - i), width: place.cell * 0.22, color, lifeMs: 800, delayMs: i * 120 }));
+  fx.rays({ x, y, count: 18, length: place.cell * 8, color: PINK, lifeMs: 1100, turnsPerSecond: 0.6 });
+}
+
+const ICE = ['#E6F7FF', '#9EE0FF', WHITE, '#5BC8FF'];
+
+/** Ice cracking: glassy shards and a cold flash; thawed for good, a bigger burst. */
+function iceShards(fx: FxCanvas, cell: number, x: number, y: number, broken: boolean): void {
+  const n = broken ? 26 : 12;
+  for (let i = 0; i < n; i++) {
+    const a = rnd(0, Math.PI * 2), v = cell * rnd(1.5, broken ? 5 : 3);
+    fx.particle({ x: x + rnd(-cell * 0.3, cell * 0.3), y: y + rnd(-cell * 0.4, cell * 0.4), vx: Math.cos(a) * v, vy: Math.sin(a) * v - cell * 1.5, size: cell * rnd(0.06, 0.14), color: ICE[i % ICE.length], lifeMs: rnd(600, 900), gravity: cell * 8, drag: 0.3, shape: 'confetti' });
+  }
+  burst(fx, x, y, { count: 10, speed: cell * 3, size: cell * 0.05, colors: [WHITE, '#9EE0FF'], lifeMs: 380, shape: 'spark' });
+  fx.ring({ x, y, fromRadius: cell * 0.2, toRadius: cell * (broken ? 1.3 : 0.8), width: cell * 0.07, color: '#BDEBFF', lifeMs: 380 });
+}
+
+/** A block taking a hit: splinters and chips; broken, it bursts. */
+function splinters(fx: FxCanvas, cell: number, x: number, y: number, broken: boolean): void {
+  const colors = ['#6B4423', '#4A2E17', '#8A5A2E', '#D0182C'];
+  for (let i = 0; i < (broken ? 22 : 10); i++) {
+    const a = rnd(-Math.PI, 0), v = cell * rnd(2, broken ? 5.5 : 3.5);
+    fx.particle({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, size: cell * rnd(0.06, 0.13), color: colors[i % colors.length], lifeMs: rnd(600, 950), gravity: cell * 10, drag: 0.2, shape: 'confetti' });
+  }
+  if (broken) {
+    for (let i = 0; i < 8; i++) {
+      fx.particle({ x, y, vx: rnd(-cell * 2.5, cell * 2.5), vy: -cell * rnd(2.5, 5), size: cell * rnd(0.14, 0.2), color: CHIP_COLORS[i % CHIP_COLORS.length], lifeMs: rnd(900, 1300), gravity: cell * 10, drag: 0.3, shape: 'chip' });
+    }
+    fx.ring({ x, y, fromRadius: cell * 0.2, toRadius: cell * 1.2, width: cell * 0.08, color: GOLD, lifeMs: 400 });
+  }
+}
+
+/** A bomb going off: a fireball, embers and a puff of smoke. */
+function fireball(fx: FxCanvas, place: Place, x: number, y: number): void {
+  const cell = place.cell;
+  const FIRE = ['#FFF3B0', GOLD, AMBER, '#FF4A1C'];
+  burst(fx, x, y, { count: 46, speed: cell * 5, size: cell * 0.12, colors: FIRE, lifeMs: 620, gravity: cell * 1.5 });
+  burst(fx, x, y, { count: 24, speed: cell * 7, size: cell * 0.06, colors: [WHITE, GOLD], lifeMs: 520, shape: 'spark' });
+  for (let i = 0; i < 14; i++) {
+    fx.particle({ x: x + rnd(-cell * 0.5, cell * 0.5), y: y + rnd(-cell * 0.5, cell * 0.5), vx: rnd(-cell, cell), vy: -cell * rnd(0.6, 1.6), size: cell * rnd(0.22, 0.38), color: 'rgba(60, 60, 70, 0.55)', lifeMs: rnd(800, 1200), drag: 0.8, delayMs: 120 });
+  }
+  [GOLD, AMBER, '#FF4A1C'].forEach((color, i) => fx.ring({ x, y, fromRadius: cell * 0.2, toRadius: cell * (2.2 - i * 0.4), width: cell * (0.3 - i * 0.07), color, lifeMs: 460, delayMs: i * 60 }));
+  fx.rays({ x, y, count: 12, length: cell * 2.4, color: AMBER, lifeMs: 520, turnsPerSecond: 0.3 });
 }
 
 /** A suit's colour on the dark felt (spades are drawn white). */

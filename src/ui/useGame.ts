@@ -133,8 +133,11 @@ export function useGame(onOver: (state: GameState) => void): GameApi {
       setPhaseBoth('over');
       setHint(null);
       setStats({ score: s.score, moves: s.moves, maxCombo: s.maxCombo, bestMove: s.bestMove, bestHand: s.bestHand, handCounts: s.handCounts });
-      playSound('gameOver');
-      vibrate('gameOver');
+      // A driver's game (the Poker Tour) plays its own ending on its result screen.
+      if (!driverRef.current) {
+        playSound('gameOver');
+        vibrate('gameOver');
+      }
       onOverRef.current(s);
     };
     if (busyRef.current) later(over, 400);
@@ -158,10 +161,15 @@ export function useGame(onOver: (state: GameState) => void): GameApi {
       float({ kind: 'shuffle', value: 0 });
     }
     if (next.kind === 'fall') later(() => playSound('land'), next.duration * 0.7);
+    if (next.damage) {
+      if (next.damage.some((d) => d.obstacle === 'ice')) playSound('ice', next.damage.some((d) => d.broken) ? 1.15 : 1);
+      if (next.damage.some((d) => d.obstacle === 'block')) playSound('crack');
+    }
     if (next.rush) {
       if (next.rush.index === 0) float({ kind: 'rushStart', value: next.rush.total });
       float({ kind: 'rush', value: next.rush.points, at: next.rush.pos });
-      playSound('blast');
+      // Each bomb a little higher than the last.
+      playSound('blast', 1 + Math.min(next.rush.index, 12) * 0.05);
       vibrate('big');
     }
     later(runQueue, next.duration);
@@ -252,7 +260,9 @@ export function useGame(onOver: (state: GameState) => void): GameApi {
     // Poker Rush: one burst of frames per bomb, each starting from the board the last one left.
     let before = played?.board;
     played?.rush.forEach((step, index, all) => {
-      const frames = moveFrames(before!, step.events, step.board);
+      // Faster with every bomb, so the Rush builds up.
+      const pace = Math.max(0.5, 0.85 - index * 0.05);
+      const frames = moveFrames(before!, step.events, step.board).map((f) => ({ ...f, duration: Math.round(f.duration * pace) }));
       if (frames.length) frames[0] = { ...frames[0], rush: { points: step.points, index, total: all.length, pos: step.pos } };
       queue.current.push(...frames);
       before = step.board;

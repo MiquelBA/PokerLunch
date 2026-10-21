@@ -1,6 +1,6 @@
 // Turns a move's events into animation frames. Each frame is a board to show plus the cards that
 // are leaving it; the board draws a frame by moving every card from where it was to where it is now.
-import { applyGravity, mutableCopy } from '../engine/board';
+import { applyGravity, isAnchored, mutableCopy } from '../engine/board';
 import type { BlastKind, Board, Card, Cell, GameEvent, HandType, Pos } from '../engine/types';
 import { HAND_TIER, UI } from './uiConfig';
 
@@ -32,7 +32,7 @@ export interface HandInfo {
 
 export interface Frame {
   readonly id: number;
-  readonly kind: 'idle' | 'collect' | 'blast' | 'fall' | 'shuffle' | 'deal';
+  readonly kind: 'idle' | 'collect' | 'blast' | 'crack' | 'fall' | 'shuffle' | 'deal';
   readonly tiles: readonly Tile[];
   readonly ghosts: readonly Ghost[];
   /** New cards and where they come in from (above the board). */
@@ -40,6 +40,8 @@ export interface Frame {
   readonly duration: number;
   readonly hand?: HandInfo;
   readonly blast?: { readonly kind: BlastKind; readonly origin: Pos; readonly count: number; readonly points: number };
+  /** Poker Tour: ice and blocks hit by the move (`broken`: the ice is gone or the block is). */
+  readonly damage?: readonly { readonly pos: Pos; readonly obstacle: 'ice' | 'block'; readonly broken: boolean }[];
   /** Poker Tour: the first frame of a Rush bomb (its points, which bomb, out of how many). */
   readonly rush?: { readonly points: number; readonly index: number; readonly total: number; readonly pos: Pos };
 }
@@ -121,7 +123,21 @@ export function moveFrames(before: Board, events: readonly GameEvent[], after: B
         blast: { kind: e.kind, origin: e.origin, count: e.cells.length, points: e.points },
       });
     } else if (e.type === 'damage') {
+      // Ice cracks, blocks chip; a block that breaks crumbles away.
       for (const c of e.cells) board[c.pos.row][c.pos.col] = c.after;
+      frames.push({
+        id: nextFrameId++,
+        kind: 'crack',
+        tiles: tilesOf(board),
+        ghosts: e.cells.filter((c) => !c.after).map((c, index) => ({ card: c.before, from: c.pos, to: { row: c.pos.row + 0.6, col: c.pos.col }, kind: 'blast', index })),
+        entering: new Map(),
+        duration: UI.anim.crack,
+        damage: e.cells.map((c) => ({
+          pos: c.pos,
+          obstacle: c.before.block ? 'block' : 'ice',
+          broken: c.before.block ? !c.after : !c.after?.ice,
+        })),
+      });
     } else if (e.type === 'fall') {
       applyGravity(board);
     } else if (e.type === 'spawn') {
@@ -129,11 +145,14 @@ export function moveFrames(before: Board, events: readonly GameEvent[], after: B
     }
   }
   // The fall: cards drop to their places; new ones come in from above, stacked in their column.
-  const spawns = events.filter((e) => e.type === 'spawn');
+  // Under ice or a block (Poker Tour) nothing can fall through: those cards appear where they are.
+  const underAnchor = (p: Pos) => board.slice(0, p.row).some((row) => isAnchored(row[p.col]));
+  const spawns = events.flatMap((e) => (e.type === 'spawn' ? [e] : []));
+  const fromAbove = spawns.filter((s) => !underAnchor(s.pos));
   const perColumn = new Map<number, number>();
-  for (const s of spawns) if (s.type === 'spawn') perColumn.set(s.pos.col, (perColumn.get(s.pos.col) ?? 0) + 1);
+  for (const s of fromAbove) perColumn.set(s.pos.col, (perColumn.get(s.pos.col) ?? 0) + 1);
   const entering = new Map<number, Pos>();
-  for (const s of spawns) if (s.type === 'spawn') entering.set(s.card.id, { row: s.pos.row - (perColumn.get(s.pos.col) ?? 0), col: s.pos.col });
+  for (const s of spawns) entering.set(s.card.id, underAnchor(s.pos) ? s.pos : { row: s.pos.row - (perColumn.get(s.pos.col) ?? 0), col: s.pos.col });
   frames.push({ id: nextFrameId++, kind: 'fall', tiles: tilesOf(board), ghosts: [], entering, duration: UI.anim.fall + (tier >= 3 ? 120 : 0) });
 
   // A reshuffle (or a new board) after the fall.
