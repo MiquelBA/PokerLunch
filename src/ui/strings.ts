@@ -53,6 +53,7 @@ export const BLAST_RULES: Readonly<Record<BlastKind, string>> = {
   board: 'Rebenta tot el tauler',
   row: 'Rebenta la fila',
   storm: 'Rebenta totes les cartes del pal',
+  bomb: 'Rebenta les cartes del voltant',
 };
 
 /** The streak power's name, shown big when it fires. */

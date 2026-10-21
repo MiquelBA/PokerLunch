@@ -2,6 +2,8 @@
 // A card is its rank (2-9, T, J, Q, K, A) and suit (S spades, H hearts, D diamonds, C clubs): "TH" is
 // the ten of hearts. "JK" is a joker. A trailing "*" marks a golden card. Boards: one line per row,
 // top first, cards separated by spaces; "." is an empty cell.
+// Poker Tour: a trailing "!" is a bomb, each trailing "~" a layer of ice ("AS~~"), and "#" a block
+// ("##" takes two hits).
 import type { Board, Card, CardSpec, Cell, Suit } from './types';
 
 const RANKS = '23456789TJQKA';
@@ -9,6 +11,13 @@ const SUITS = 'SHDC';
 
 export function parseCard(text: string): CardSpec {
   let t = text.trim().toUpperCase();
+  if (/^#+$/.test(t)) return { rank: 0, suit: 0, block: t.length };
+  const iceMatch = /~+$/.exec(t);
+  if (iceMatch) {
+    t = t.slice(0, iceMatch.index);
+    return { ...parseCard(t), ice: iceMatch[0].length };
+  }
+  if (t.endsWith('!')) return { ...parseCard(t.slice(0, -1)), bomb: true };
   const golden = t.endsWith('*');
   if (golden) t = t.slice(0, -1);
   if (t === 'JK') return { rank: 0, suit: 0, joker: true };
@@ -20,8 +29,10 @@ export function parseCard(text: string): CardSpec {
 }
 
 export function formatCard(c: CardSpec): string {
-  if (c.joker) return 'JK';
-  return `${RANKS[c.rank - 2]}${SUITS[c.suit]}${c.golden ? '*' : ''}`;
+  if (c.block) return '#'.repeat(c.block);
+  const tail = `${c.golden ? '*' : ''}${c.bomb ? '!' : ''}${'~'.repeat(c.ice ?? 0)}`;
+  if (c.joker) return `JK${tail}`;
+  return `${RANKS[c.rank - 2]}${SUITS[c.suit]}${tail}`;
 }
 
 export function parseCards(text: string): CardSpec[] {

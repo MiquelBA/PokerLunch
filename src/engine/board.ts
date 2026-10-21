@@ -38,17 +38,27 @@ export function allPositions(board: Board): Pos[] {
   return out;
 }
 
-/** A path is a chain of distinct, neighbouring, occupied cells. */
+/** Ice and blocks hold their cell: they can't be traced and don't fall (Poker Tour). */
+export function isAnchored(c: Cell): boolean {
+  return !!c && (!!c.block || !!c.ice);
+}
+
+/** A card that can be part of a traced hand. */
+export function isPlayable(c: Cell): c is Card {
+  return !!c && !c.block && !c.ice;
+}
+
+/** A path is a chain of distinct, neighbouring cells holding playable cards. */
 export function isConnectedPath(board: Board, path: readonly Pos[]): boolean {
   for (let i = 0; i < path.length; i++) {
-    if (!cellAt(board, path[i])) return false;
+    if (!isPlayable(cellAt(board, path[i]))) return false;
     if (path.findIndex((q) => samePos(q, path[i])) !== i) return false;
     if (i > 0 && !areNeighbours(path[i - 1], path[i])) return false;
   }
   return true;
 }
 
-/** Cards fall to fill the holes in each column, keeping their order. */
+/** Cards fall to fill the holes in each column, keeping their order. Anchored cells stop them. */
 export function applyGravity(board: Cell[][]): Fall[] {
   const falls: Fall[] = [];
   const rows = board.length;
@@ -57,6 +67,10 @@ export function applyGravity(board: Cell[][]): Fall[] {
     for (let row = rows - 1; row >= 0; row--) {
       const card = board[row][col];
       if (!card) continue;
+      if (isAnchored(card)) {
+        write = row - 1;
+        continue;
+      }
       if (row !== write) {
         board[write][col] = card;
         board[row][col] = null;

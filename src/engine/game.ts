@@ -1,6 +1,6 @@
 // The game: deal, play a hand, blasts, gravity, reshuffle, clock (REGLES.md). Pure and deterministic:
 // the same seed and moves always give the same states and events.
-import { allPositions, applyGravity, areNeighbours, cellAt, emptyCells, isConnectedPath, mutableCopy, neighbours, samePos } from './board';
+import { allPositions, applyGravity, areNeighbours, cellAt, emptyCells, isAnchored, isConnectedPath, isPlayable, mutableCopy, neighbours, samePos } from './board';
 import { DEFAULT_CONFIG } from './config';
 import { canComplete, evaluateHand, handMainRank, handRank, handStrength, handSuit } from './hands';
 import { nextInt, nextRandom, seedToState } from './rng';
@@ -80,6 +80,11 @@ function deal(d: Dealer, config: GameConfig): Card {
       let r: number;
       [r, d.rng] = nextRandom(d.rng);
       if (r < config.goldenChance) spec = { ...spec, golden: true };
+    }
+    if (!spec.joker && config.bombChance) {
+      let r: number;
+      [r, d.rng] = nextRandom(d.rng);
+      if (r < config.bombChance) spec = { ...spec, bomb: true };
     }
   }
   return { ...spec, id: d.nextId++ };
@@ -191,7 +196,7 @@ export function findHands(board: Board, config: GameConfig, limit = Infinity, to
     if (path.length >= config.maxLength) return false;
     for (const q of neighbours(board, path[path.length - 1])) {
       const card = cellAt(board, q);
-      if (!card || path.some((p) => samePos(p, q))) continue;
+      if (!isPlayable(card) || path.some((p) => samePos(p, q))) continue;
       cards.push(card);
       path.push(q);
       const stop = canComplete(cards, config.maxLength) && walk(path, cards);
@@ -203,7 +208,7 @@ export function findHands(board: Board, config: GameConfig, limit = Infinity, to
   };
   for (const p of allPositions(board)) {
     const card = cellAt(board, p);
-    if (card && walk([p], [card])) break;
+    if (isPlayable(card) && walk([p], [card])) break;
   }
   return found;
 }
@@ -240,14 +245,14 @@ export function blastCells(board: Board, kind: string | undefined, path: readonl
       const suit = handSuit(cards);
       return all.filter((p) => {
         const c = cellAt(board, p)!;
-        return !c.joker && c.suit === suit && path.some((q) => areNeighbours(p, q));
+        return !c.joker && !c.block && c.suit === suit && path.some((q) => areNeighbours(p, q));
       });
     }
     case 'rank': {
       const rank = handRank(cards);
       return all.filter((p) => {
         const c = cellAt(board, p)!;
-        return !c.joker && c.rank === rank;
+        return !c.joker && !c.block && c.rank === rank;
       });
     }
     case 'row':
@@ -256,7 +261,7 @@ export function blastCells(board: Board, kind: string | undefined, path: readonl
       const suit = handSuit(cards);
       return all.filter((p) => {
         const c = cellAt(board, p)!;
-        return !c.joker && c.suit === suit;
+        return !c.joker && !c.block && c.suit === suit;
       });
     }
     case 'board':
@@ -264,6 +269,54 @@ export function blastCells(board: Board, kind: string | undefined, path: readonl
     default:
       return [];
   }
+}
+
+/**
+ * Bombs among the cleared cells go off: each clears the 3×3 around it, hits the obstacles there and
+ * sets off the bombs it reaches. Adds the cells it clears to `cleared`; returns the points.
+ */
+function explodeBombs(board: Board, cleared: Pos[], hit: (p: Pos) => void, comboMult: number, config: GameConfig, events: GameEvent[]): number {
+  const isCleared = (p: Pos) => cleared.some((q) => samePos(p, q));
+  const queue = cleared.filter((p) => cellAt(board, p)?.bomb);
+  let points = 0;
+  while (queue.length) {
+    const origin = queue.shift()!;
+    const cells: { card: Card; pos: Pos }[] = [];
+    for (const p of allPositions(board)) {
+      if (samePos(p, origin) || Math.abs(p.row - origin.row) > 1 || Math.abs(p.col - origin.col) > 1) continue;
+      const card = cellAt(board, p);
+      if (!card) continue;
+      if (isAnchored(card)) { hit(p); continue; }
+      if (isCleared(p)) continue;
+      cleared.push(p);
+      cells.push({ card, pos: p });
+      if (card.bomb) queue.push(p);
+    }
+    const pts = Math.round(cells.length * config.blastPointsPerCard * comboMult);
+    points += pts;
+    events.push({ type: 'blast', kind: 'bomb', origin, cells, points: pts });
+  }
+  return points;
+}
+
+/** Takes the hits off the obstacles: ice loses layers (then it's a normal card), blocks break. */
+function applyHits(board: Cell[][], hits: ReadonlyMap<string, number>, events: GameEvent[]): void {
+  if (!hits.size) return;
+  const cells: { pos: Pos; before: Card; after: Card | null }[] = [];
+  for (const [key, n] of hits) {
+    const [row, col] = key.split(',').map(Number);
+    const before = board[row][col];
+    if (!before) continue;
+    let after: Card | null;
+    if (before.block) after = before.block > n ? { ...before, block: before.block - n } : null;
+    else {
+      const { ice, ...rest } = before;
+      after = (ice ?? 0) > n ? { ...before, ice: ice! - n } : rest;
+    }
+    board[row][col] = after;
+    cells.push({ pos: { row, col }, before, after });
+  }
+  events.push({ type: 'damage', cells });
 }
 
 // ---------------------------------------------------------------- playing
@@ -315,7 +368,12 @@ export function applyMove(state: GameState, move: Move): MoveResult {
 
   const board = mutableCopy(state.board);
   const blastKind = def.blast ?? (power ? POWER_BLAST[power] : undefined);
-  const swept = blastCells(state.board, blastKind, move.path, cards);
+  // Obstacles (Poker Tour) in a blast are hit rather than swept away.
+  const hits = new Map<string, number>();
+  const hit = (p: Pos) => hits.set(`${p.row},${p.col}`, (hits.get(`${p.row},${p.col}`) ?? 0) + 1);
+  const inBlast = blastCells(state.board, blastKind, move.path, cards);
+  const swept = inBlast.filter((p) => !isAnchored(cellAt(state.board, p)));
+  inBlast.filter((p) => isAnchored(cellAt(state.board, p))).forEach(hit);
   let blastPoints = 0;
   if (blastKind) {
     blastPoints = Math.round(swept.length * config.blastPointsPerCard * comboMult);
@@ -327,7 +385,14 @@ export function applyMove(state: GameState, move: Move): MoveResult {
       points: blastPoints,
     });
   }
-  for (const p of [...move.path, ...swept]) board[p.row][p.col] = null;
+  const cleared = [...move.path, ...swept];
+  blastPoints += explodeBombs(state.board, cleared, hit, comboMult, config, events);
+  // A hand hits the obstacles next to it, once each.
+  for (const p of allPositions(state.board)) {
+    if (isAnchored(cellAt(state.board, p)) && move.path.some((q) => areNeighbours(p, q))) hit(p);
+  }
+  for (const p of cleared) board[p.row][p.col] = null;
+  applyHits(board, hits, events);
 
   const d = dealerOf(state);
   events.push({ type: 'fall', falls: applyGravity(board) });
@@ -408,7 +473,8 @@ function ensurePlayable(state: GameState, events: GameEvent[]): { state: GameSta
   if (config.minValidMoves <= 0 || enough(state.board)) return { state };
   let rng = state.rngState;
   const start = state.board;
-  const positions = allPositions(start).filter((p) => cellAt(start, p));
+  // Ice and blocks keep their place.
+  const positions = allPositions(start).filter((p) => cellAt(start, p) && !isAnchored(cellAt(start, p)));
   for (let attempt = 0; attempt < config.maxShuffleAttempts; attempt++) {
     const cards = positions.map((p) => cellAt(start, p)!);
     for (let i = cards.length - 1; i > 0; i--) {
@@ -430,7 +496,7 @@ function ensurePlayable(state: GameState, events: GameEvent[]): { state: GameSta
   // Deal a whole new board from the shoe.
   const d: Dealer = { ...dealerOf(state), rng };
   for (;;) {
-    const board = mutableCopy(start).map((row) => row.map(() => null as Cell));
+    const board = mutableCopy(start).map((row) => row.map((c) => (isAnchored(c) ? c : null)));
     for (const p of emptyCells(board)) board[p.row][p.col] = deal(d, config);
     if (enough(board)) {
       events.push({ type: 'regenerate', board });

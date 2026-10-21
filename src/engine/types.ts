@@ -19,6 +19,15 @@ export interface CardSpec {
   readonly joker?: boolean;
   /** Golden card: the hand it is in scores × goldenMultiplier. */
   readonly golden?: boolean;
+  /**
+   * Poker Tour only (absent in the Classic game). Ice: layers left; a frozen card can't be traced
+   * and doesn't fall. A hand next to it, a blast or a bomb takes a layer off.
+   */
+  readonly ice?: number;
+  /** Poker Tour only. Bomb: when the card goes, everything around it (3×3) goes too. */
+  readonly bomb?: boolean;
+  /** Poker Tour only. A block: not a card, just hits left. Can't be traced, doesn't fall, stops falling cards. */
+  readonly block?: number;
 }
 
 export interface Card extends CardSpec {
@@ -46,7 +55,7 @@ export const HAND_TYPES = [
 export type HandType = (typeof HAND_TYPES)[number];
 
 /** What a hand does to the board besides clearing its own cards. */
-export type BlastKind = 'cross' | 'suit' | 'rank' | 'board' | 'row' | 'storm';
+export type BlastKind = 'cross' | 'suit' | 'rank' | 'board' | 'row' | 'storm' | 'bomb';
 
 /**
  * What a hand does when it completes a variety run (varietyLength different hands in a row): a joker
@@ -81,6 +90,8 @@ export interface GameConfig {
   readonly jokersPerShoe: number;
   readonly goldenChance: number;
   readonly goldenMultiplier: number;
+  /** Poker Tour: chance that a dealt card is a bomb. Absent or 0: never (and no random number drawn). */
+  readonly bombChance?: number;
   readonly hands: Readonly<Record<HandType, HandDef>>;
   /** Points per pip of the real cards in a hand (an ace is 14). */
   readonly pointsPerPip: number;
@@ -180,6 +191,11 @@ export type GameEvent =
       readonly power: PowerKind;
       /** Cells it touched: the joker, the golden cards (after the deal). Blasts use a blast event. */
       readonly cells: readonly Pos[];
+    }
+  | {
+      /** Poker Tour: obstacles hit (ice loses layers, blocks lose hits). `after` is null once a block breaks. */
+      readonly type: 'damage';
+      readonly cells: readonly { readonly pos: Pos; readonly before: Card; readonly after: Card | null }[];
     }
   | { readonly type: 'fall'; readonly falls: readonly Fall[] }
   | { readonly type: 'spawn'; readonly card: Card; readonly pos: Pos }
