@@ -121,7 +121,7 @@ button:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
 }
 .trace-label.valid { color: var(--valid); transform: scale(1.12); text-shadow: 0 0 14px rgba(255, 201, 60, 0.6); }
 .trace-label.valid.tier-2, .trace-label.valid.tier-3, .trace-label.valid.tier-4 { transform: scale(1.3); color: var(--gold-hi); }
-.trace-label.invalid { color: var(--invalid); font-size: 20px; }
+.trace-label.invalid, .trace-label.spent { color: var(--invalid); font-size: 20px; }
 .trace-label.partial { color: var(--partial); letter-spacing: 0.3em; }
 
 .board-wrap {
@@ -147,7 +147,7 @@ button:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
 }
 
 .tile { position: absolute; left: 0; top: 0; will-change: transform; }
-.tile-inner { width: 100%; height: 100%; padding: 4% 5.5%; transition: transform 90ms ease-out; }
+.tile-inner { width: 100%; height: 100%; padding: 3% 4%; transition: transform 90ms ease-out; }
 .tile.ghost { z-index: 3; pointer-events: none; }
 
 /* Card front and back. Turning face down is instant; turning face up is a 3D flip in a wave. */
@@ -157,7 +157,7 @@ button:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
 .tile.face-down .flipper { transform: rotateY(180deg); }
 .tile:not(.face-down) .flipper { transition: transform var(--flip-ms, 460ms) cubic-bezier(.3, 1.35, .5, 1) var(--flip-delay, 0ms); }
 .card-back {
-  border-radius: 13% / 10%;
+  border-radius: 7.5% / 5.4%;
   padding: 8%;
   background: linear-gradient(180deg, var(--card) 0%, #F6F0E2 100%);
   box-shadow: 0 2px 0 var(--card-edge), 0 3px 0 rgba(0, 0, 0, 0.35), 0 6px 10px rgba(0, 0, 0, 0.3);
@@ -176,57 +176,46 @@ button:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
 .card-back-inner .suit { width: 46cqw; height: 46cqw; fill: var(--gold); filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.4)); }
 
 /* ------------------------------------------------------------ cards */
+/* Real poker cards (CardFace): an SVG symbol from the sprite. Suit colours, the face and its edge are
+   custom properties, so a golden card only changes variables. */
+.card-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+:root {
+  --c-heart: #D0182C;
+  --c-diamond: #D0182C;
+  --c-spade: #16181D;
+  --c-club: #16181D;
+}
 .card {
-  container-type: size;
   position: relative;
   width: 100%;
   height: 100%;
-  border-radius: 13% / 10%;
-  background: linear-gradient(180deg, var(--card) 0%, #F6F0E2 100%);
-  box-shadow: 0 2px 0 var(--card-edge), 0 3px 0 rgba(0, 0, 0, 0.35), 0 6px 10px rgba(0, 0, 0, 0.3);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: var(--suit, var(--ink));
-  overflow: hidden;
+  border-radius: 7.5% / 5.4%;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25), 0 5px 9px rgba(0, 0, 0, 0.3);
 }
-.rank {
-  font-family: var(--ui);
-  font-weight: 800;
-  font-size: 50cqh;
-  line-height: 0.82;
-  margin-top: 4cqh;
-  letter-spacing: -0.02em;
-}
-.rank-wide { letter-spacing: -0.03em; font-size: 44cqh; }
-.card .suit { width: 40cqh; height: 40cqh; fill: currentColor; margin-top: 3cqh; }
+.card > svg { display: block; width: 100%; height: 100%; }
 .card.golden {
-  background: linear-gradient(160deg, var(--gold-hi) 0%, #FFD45A 45%, #E9A92A 100%);
-  box-shadow: 0 2px 0 var(--gold-deep), 0 3px 0 rgba(0, 0, 0, 0.35), 0 0 12px rgba(255, 201, 60, 0.75);
+  --card-bg: url(#pl-foil);
+  --card-edge: var(--gold-deep);
+  box-shadow: 0 2px 0 var(--gold-deep), 0 0 12px rgba(255, 201, 60, 0.8);
+  overflow: hidden;
 }
 .card.golden::after {
   content: "";
   position: absolute;
   inset: -50% -100%;
-  background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.8) 50%, transparent 60%);
+  background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.7) 50%, transparent 60%);
   animation: shimmer 2.4s ease-in-out infinite;
+  pointer-events: none;
 }
-.card.joker {
-  background: radial-gradient(circle at 50% 35%, #7A3BD8 0%, #3B1D6E 55%, #1A0E3A 100%);
-  box-shadow: 0 2px 0 #12082A, 0 3px 0 rgba(0, 0, 0, 0.35), 0 0 0 2px var(--magenta), 0 0 12px rgba(255, 61, 139, 0.6);
-  color: var(--gold);
-}
-.joker-star { width: 52cqh; height: 52cqh; fill: var(--gold); filter: drop-shadow(0 0 4px rgba(255, 201, 60, 0.8)); animation: twinkle 1.8s ease-in-out infinite; }
-.joker-label { font-family: var(--display); font-size: 17cqh; letter-spacing: 0.08em; margin-top: 2cqh; }
+.card.joker { box-shadow: 0 0 0 2px var(--magenta), 0 0 12px rgba(255, 61, 139, 0.55), 0 5px 9px rgba(0, 0, 0, 0.3); }
 
 /* Traced cards lift; their outline says if the trace is a hand (gold), on its way (white) or dead (red). */
 .tile.mark .tile-inner { transform: translateY(-5%) scale(1.07); }
 .tile.mark .card { box-shadow: 0 0 0 3px var(--mark), 0 0 16px var(--mark), 0 6px 10px rgba(0, 0, 0, 0.35); }
 .tile.mark-valid { --mark: var(--valid); z-index: 2; }
 .tile.mark-partial { --mark: var(--partial); z-index: 2; }
-.tile.mark-invalid { --mark: var(--invalid); z-index: 2; }
-.tile.mark-invalid .card { filter: saturate(0.6) brightness(0.9); }
+.tile.mark-invalid, .tile.mark-spent { --mark: var(--invalid); z-index: 2; }
+.tile.mark-invalid .card, .tile.mark-spent .card { filter: saturate(0.6) brightness(0.9); }
 .tile.mark-valid .card { animation: glow 600ms ease-in-out infinite alternate; }
 .tile.hint .card { animation: hint 1.1s ease-in-out infinite; }
 
@@ -238,8 +227,8 @@ button:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
 .trace-valid circle { fill: var(--valid); }
 .trace-partial polyline, .trace-partial line { stroke: var(--partial); }
 .trace-partial circle { fill: var(--partial); }
-.trace-invalid polyline, .trace-invalid line { stroke: var(--invalid); }
-.trace-invalid circle { fill: var(--invalid); }
+.trace-invalid polyline, .trace-invalid line, .trace-spent polyline, .trace-spent line { stroke: var(--invalid); }
+.trace-invalid circle, .trace-spent circle { fill: var(--invalid); }
 .trace-none line { stroke: var(--partial); }
 
 .board-flash {
@@ -292,6 +281,7 @@ button:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
 .float-combo { top: 6%; font-size: 36px; color: var(--magenta); text-shadow: 0 2px 0 #6E0E37, 0 0 12px rgba(255, 61, 139, 0.8); }
 .float-time { top: 90%; font-size: 34px; color: var(--cyan); text-shadow: 0 2px 0 #0A5C70; }
 .float-golden { top: 24%; font-size: 30px; color: var(--gold-hi); text-shadow: 0 2px 0 var(--gold-deep); }
+.float-variety { top: 40%; font-size: min(46px, 12vw); color: var(--cyan); text-shadow: 0 3px 0 #0A5C70, 0 0 14px rgba(91, 231, 255, 0.8); }
 .float-power {
   top: 72%; font-size: min(54px, 13vw); color: var(--cream);
   background: linear-gradient(180deg, #FFFFFF, var(--cyan) 55%, var(--magenta)); -webkit-background-clip: text; background-clip: text; color: transparent;
@@ -354,12 +344,23 @@ button:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
   transition: transform 120ms ease-out, opacity 120ms, background 120ms;
 }
 .rung.made { opacity: 0.9; }
-/* Progress to the hand's power: two pips; the third hand fires it. */
-.rung-pips { display: inline-flex; gap: 2px; align-self: center; }
-.rung-pips i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255, 248, 231, 0.3); }
-.rung-pips i.lit { background: var(--cyan); box-shadow: 0 0 6px var(--cyan); }
-.rung.on .rung-pips i { background: rgba(21, 23, 28, 0.3); }
-.rung.on .rung-pips i.lit { background: var(--ink); box-shadow: none; }
+/* Tokens: one gold dot per play left. A hand without any is crossed out. */
+.rung-tokens { display: inline-flex; gap: 2px; align-self: center; }
+.rung-tokens i { width: 6px; height: 6px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px rgba(255, 201, 60, 0.6); }
+.rung-tokens i.full { background: var(--gold); box-shadow: 0 0 5px rgba(255, 201, 60, 0.7); }
+.rung.spent { opacity: 0.45; }
+.rung.spent .rung-name { text-decoration: line-through; text-decoration-thickness: 2px; }
+.rung.on .rung-tokens i { box-shadow: inset 0 0 0 1.5px rgba(21, 23, 28, 0.5); }
+.rung.on .rung-tokens i.full { background: var(--ink); box-shadow: none; }
+
+/* The variety run: three slots that fill with different hands. */
+.variety { width: min(100%, 520px); display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 14px; }
+.variety-label { color: var(--cream); opacity: 0.8; margin-right: 2px; }
+.variety-slot { min-width: 54px; padding: 2px 8px; border-radius: 8px; text-align: center; background: rgba(0, 0, 0, 0.3); box-shadow: inset 0 0 0 1.5px rgba(91, 231, 255, 0.35); color: rgba(255, 248, 231, 0.5); white-space: nowrap; }
+.variety-slot.filled { background: rgba(91, 231, 255, 0.18); box-shadow: inset 0 0 0 1.5px var(--cyan); color: var(--cream); animation: slot-in 260ms ease-out; }
+.variety-prize { font-family: var(--display); font-size: 20px; color: var(--cyan); margin-left: 2px; }
+@keyframes slot-in { from { transform: scale(1.3); } to { transform: scale(1); } }
+
 .rung-count { color: var(--gold); font-variant-numeric: tabular-nums; }
 .rung.on { opacity: 1; background: var(--gold); color: var(--ink); transform: scale(1.12); }
 .rung.on .rung-count { color: var(--ink); }
@@ -460,7 +461,7 @@ button:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
 .sheet.help h2, .sheet.help h3 { text-align: center; }
 .help-specials { display: flex; flex-direction: column; gap: 8px; }
 .help-special { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 600; }
-.mini { width: 32px; height: 44px; flex: none; }
+.mini { width: 38px; height: 53px; flex: none; }
 .help-hands { display: flex; flex-direction: column; gap: 8px; }
 .help-hand { padding: 8px 10px; border-radius: 12px; background: rgba(0, 0, 0, 0.25); display: flex; flex-direction: column; gap: 6px; }
 .help-hand-head { display: flex; justify-content: space-between; align-items: baseline; }

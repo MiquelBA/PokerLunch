@@ -1,11 +1,11 @@
 // Screens: menu, game (HUD, board, hand ladder), pause, end of game, how to play, daily challenge.
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import type { TraceStatus } from '../engine/game';
+import { handAllowed, type TraceStatus } from '../engine/game';
 import { parseCards } from '../engine/notation';
 import { HAND_TYPES, type GameState, type HandType } from '../engine/types';
 import { playRung, playSound, setMuted, unlockAudio } from './audio';
 import { Board } from './Board';
-import { CardFace } from './CardFace';
+import { CardFace, CardSprite } from './CardFace';
 import { currentStreak, dailyDate, dailySeed, finishOfficial, loadDaily, msUntilNext, playedToday, shortDate, startOfficial } from './daily';
 import { vibrate } from './haptics';
 import { loadBest, loadFlag, saveBest, saveFlag } from './storage';
@@ -139,6 +139,7 @@ export function App() {
 
   return (
     <div className={`app ${playing || phase === 'over' ? 'in-game' : 'in-menu'}`}>
+      <CardSprite />
       <header className="hud">
         <div className="hud-cell hud-score">
           <span className="hud-label">{STRINGS.score}</span>
@@ -156,12 +157,13 @@ export function App() {
       </header>
 
       <main className="stage">
-        <TraceLabel trace={trace} />
+        <TraceLabel trace={trace} allowed={!trace.hand || handAllowed(trace.hand, state.config, state.tokens)} />
         <div className="board-wrap">
           <Board
             board={state.board}
             frame={frame}
             config={state.config}
+            tokens={state.tokens}
             hint={game.hint}
             enabled={enabled}
             faceDown={game.faceDown}
@@ -175,16 +177,24 @@ export function App() {
         </div>
       </main>
 
+      <Variety run={state.variety} length={state.config.varietyLength} multiplier={state.config.varietyMultiplier} />
+
       <footer className="ladder" aria-label={STRINGS.hands}>
-        {HAND_TYPES.map((h) => (
-          <div key={h} className={`rung tier-${HAND_TIER[h]} ${trace.hand === h ? 'on' : ''} ${state.handCounts[h] ? 'made' : ''}`}>
-            <span className="rung-name">{HAND_NAMES[h]}</span>
-            <span className="rung-count">{state.handCounts[h] || '·'}</span>
-            <span className="rung-pips" aria-hidden="true">
-              {Array.from({ length: state.config.powerStreak - 1 }, (_, i) => <i key={i} className={i < state.powerCounts[h] ? 'lit' : ''} />)}
-            </span>
-          </div>
-        ))}
+        {HAND_TYPES.map((h) => {
+          const max = state.config.hands[h].tokens;
+          const left = max === undefined ? null : state.tokens[h];
+          return (
+            <div key={h} className={`rung tier-${HAND_TIER[h]} ${trace.hand === h ? 'on' : ''} ${state.handCounts[h] ? 'made' : ''} ${left === 0 ? 'spent' : ''}`}>
+              <span className="rung-name">{HAND_NAMES[h]}</span>
+              <span className="rung-count">{state.handCounts[h] || '·'}</span>
+              {max !== undefined && (
+                <span className="rung-tokens" aria-label={STRINGS.tokensLeft(left ?? 0)}>
+                  {Array.from({ length: max }, (_, i) => <i key={i} className={i < (left ?? 0) ? 'full' : ''} />)}
+                </span>
+              )}
+            </div>
+          );
+        })}
       </footer>
 
       {game.banner?.tier === 4 && <RoyalTakeover key={game.banner.id} />}
@@ -259,10 +269,13 @@ function PauseIcon() {
   );
 }
 
-function TraceLabel({ trace }: { trace: Trace }) {
+function TraceLabel({ trace, allowed }: { trace: Trace; allowed: boolean }) {
   let text = '';
   let cls = '';
-  if (trace.length && trace.hand) {
+  if (trace.length && trace.hand && !allowed) {
+    text = STRINGS.noTokens(HAND_NAMES[trace.hand]);
+    cls = 'spent';
+  } else if (trace.length && trace.hand) {
     text = `${HAND_NAMES[trace.hand]} · ${fmt(trace.points)}`;
     cls = `valid tier-${HAND_TIER[trace.hand]}`;
   } else if (trace.length >= 2 && trace.status === 'invalid') {
@@ -273,6 +286,19 @@ function TraceLabel({ trace }: { trace: Trace }) {
     cls = 'partial';
   }
   return <div className={`trace-label ${cls}`} aria-live="polite">{text}</div>;
+}
+
+/** The variety run: the different hands played in a row so far, and the slots left to the bonus. */
+function Variety({ run, length, multiplier }: { run: readonly HandType[]; length: number; multiplier: number }) {
+  return (
+    <div className="variety" aria-label={STRINGS.variety.label(length, multiplier)}>
+      <span className="variety-label">{STRINGS.variety.title}</span>
+      {Array.from({ length }, (_, i) => (
+        <span key={i} className={`variety-slot ${run[i] ? 'filled' : ''}`}>{run[i] ? HAND_NAMES[run[i]] : '?'}</span>
+      ))}
+      <span className="variety-prize">{STRINGS.times(multiplier)}</span>
+    </div>
+  );
 }
 
 function HandBanner({ hand, points }: { hand: HandType; points: number }) {
@@ -319,6 +345,7 @@ function floaterText(f: Floater): string {
     case 'golden': return STRINGS.golden(f.value);
     case 'shuffle': return STRINGS.shuffle;
     case 'power': return f.text ?? '';
+    case 'variety': return STRINGS.variety.done(f.value);
     case 'combo': {
       const key = UI.comboTextKeys[Math.min(f.value - 2, UI.comboTextKeys.length - 1)];
       return `${STRINGS[key]} ${STRINGS.times(Number(f.text))}`;
@@ -461,7 +488,8 @@ function Help({ onClose }: { onClose: () => void }) {
         <p>{H.trace}</p>
         <p><strong>{H.all}</strong></p>
         <p>{H.time}</p>
-        <p>{H.streak}</p>
+        <p>{H.tokens}</p>
+        <p>{H.variety}</p>
         <div className="help-specials">
           <div className="help-special"><div className="mini"><CardFace card={{ rank: 0, suit: 0, joker: true }} /></div><span>{H.joker}</span></div>
           <div className="help-special"><div className="mini"><CardFace card={{ rank: 12, suit: 1, golden: true }} /></div><span>{H.golden}</span></div>
@@ -484,7 +512,10 @@ function Help({ onClose }: { onClose: () => void }) {
                   {def.blast ? ` · ${BLAST_RULES[def.blast]}` : ''}
                   {def.timeBonusMs ? ` · ${STRINGS.timeBonus(def.timeBonusMs / 1000)}` : ''}
                 </span>
-                <span className="help-hand-power">{H.power}: {POWER_RULES[def.power]}</span>
+                <span className="help-hand-power">
+                  {def.tokens !== undefined ? `${H.tokensOf(def.tokens)} · ` : `${H.noLimit} · `}
+                  {H.power}: {POWER_RULES[def.power]}
+                </span>
               </div>
             );
           })}

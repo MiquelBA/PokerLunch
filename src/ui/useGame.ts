@@ -14,7 +14,7 @@ export type Phase = 'menu' | 'countdown' | 'playing' | 'over';
 
 export interface Floater {
   readonly id: number;
-  readonly kind: 'points' | 'combo' | 'time' | 'golden' | 'shuffle' | 'blast' | 'power';
+  readonly kind: 'points' | 'combo' | 'time' | 'golden' | 'shuffle' | 'blast' | 'power' | 'variety';
   readonly text?: string;
   readonly value: number;
   /** Cell position (fractional) for points; banners have none. */
@@ -246,6 +246,7 @@ export function useGame(onOver: (state: GameState) => void): GameApi {
         later(() => playSound('blast'), collectMs);
         float({ kind: 'blast', value: e.points, at: e.origin }, collectMs + 200);
       }
+      if (e.type === 'variety') float({ kind: 'variety', value: e.multiplier }, 60);
       if (e.type === 'power') {
         float({ kind: 'power', value: 0, text: POWER_NAMES[e.power] }, collectMs * 0.4);
         later(() => playSound('power'), collectMs * 0.4);
@@ -284,7 +285,7 @@ export function useGame(onOver: (state: GameState) => void): GameApi {
         // A hint after a while without playing.
         if (now - lastActivity.current > UI.hintDelayMs) {
           lastActivity.current = now;
-          const hands = findHands(r.state.board, r.state.config, 12);
+          const hands = findHands(r.state.board, r.state.config, 12, r.state.tokens);
           if (hands.length) setHint(hands[Math.floor(Math.random() * hands.length)].path);
         }
       }

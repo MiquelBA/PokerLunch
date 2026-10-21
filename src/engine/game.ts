@@ -35,6 +35,16 @@ export interface NewGameOptions {
 
 const EMPTY_COUNTS: HandCounts = Object.fromEntries(HAND_TYPES.map((h) => [h, 0])) as Record<HandType, number>;
 
+/** Every hand's tokens at the start: its limit, or 0 for hands without one (never read). */
+function fullTokens(config: GameConfig): HandCounts {
+  return Object.fromEntries(HAND_TYPES.map((h) => [h, config.hands[h].tokens ?? 0])) as Record<HandType, number>;
+}
+
+/** The hand can be played now: it has no token limit or tokens left. Without `tokens`, any hand can. */
+export function handAllowed(hand: HandType, config: GameConfig, tokens?: HandCounts): boolean {
+  return !tokens || config.hands[hand].tokens === undefined || tokens[hand] > 0;
+}
+
 // ---------------------------------------------------------------- dealing
 
 interface Dealer {
@@ -112,7 +122,8 @@ export function newGame(options: NewGameOptions = {}): GameState {
     bestMove: 0,
     bestHand: null,
     handCounts: EMPTY_COUNTS,
-    powerCounts: EMPTY_COUNTS,
+    tokens: fullTokens(config),
+    variety: [],
     shuffles: 0,
     gameOver: false,
     history: [],
@@ -136,13 +147,18 @@ export function handOf(board: Board, path: readonly Pos[], config: GameConfig): 
   return cards ? evaluateHand(cards) : null;
 }
 
-export type TraceStatus = 'valid' | 'partial' | 'invalid';
+export type TraceStatus = 'valid' | 'partial' | 'invalid' | 'spent';
 
-/** While tracing: a hand already, on its way to one, or a dead end. */
-export function traceStatus(board: Board, path: readonly Pos[], config: GameConfig): TraceStatus {
+/** While tracing: a hand already, a hand without tokens left, on its way to one, or a dead end. */
+export function traceStatus(board: Board, path: readonly Pos[], config: GameConfig, tokens?: HandCounts): TraceStatus {
   const cards = pathCards(board, path);
   if (!cards || !cards.length) return 'invalid';
-  if (path.length >= config.minLength && evaluateHand(cards)) return 'valid';
+  const hand = path.length >= config.minLength ? evaluateHand(cards) : null;
+  if (hand) {
+    if (handAllowed(hand, config, tokens)) return 'valid';
+    // Spent, unless a longer trace can still become something else.
+    return path.length < config.maxLength && canComplete(cards, config.maxLength) ? 'partial' : 'spent';
+  }
   return canComplete(cards, config.maxLength) ? 'partial' : 'invalid';
 }
 
@@ -155,7 +171,7 @@ export interface FoundHand {
  * Hands that can be traced now, one per set of cells, found by a depth-first walk that drops any
  * path that can no longer become a hand. Stops at `limit`.
  */
-export function findHands(board: Board, config: GameConfig, limit = Infinity): FoundHand[] {
+export function findHands(board: Board, config: GameConfig, limit = Infinity, tokens?: HandCounts): FoundHand[] {
   const found: FoundHand[] = [];
   const seen = new Set<string>();
   const cols = board[0]?.length ?? 0;
@@ -163,7 +179,7 @@ export function findHands(board: Board, config: GameConfig, limit = Infinity): F
   const walk = (path: Pos[], cards: Card[]): boolean => {
     if (path.length >= config.minLength) {
       const hand = evaluateHand(cards);
-      if (hand) {
+      if (hand && handAllowed(hand, config, tokens)) {
         const k = key(path);
         if (!seen.has(k)) {
           seen.add(k);
@@ -192,8 +208,8 @@ export function findHands(board: Board, config: GameConfig, limit = Infinity): F
   return found;
 }
 
-export function countHands(board: Board, config: GameConfig, limit = Infinity): number {
-  return findHands(board, config, limit).length;
+export function countHands(board: Board, config: GameConfig, limit = Infinity, tokens?: HandCounts): number {
+  return findHands(board, config, limit, tokens).length;
 }
 
 // ---------------------------------------------------------------- scoring
@@ -255,7 +271,8 @@ export function blastCells(board: Board, kind: string | undefined, path: readonl
 export function isValidMove(state: GameState, move: Move): boolean {
   if (state.gameOver) return false;
   if (state.config.mode === 'time' && (move.atMs ?? state.elapsedMs) >= state.timeLimitMs) return false;
-  return handOf(state.board, move.path, state.config) !== null;
+  const hand = handOf(state.board, move.path, state.config);
+  return hand !== null && handAllowed(hand, state.config, state.tokens);
 }
 
 /** Plays a traced hand. An invalid move returns the same state and no events. */
@@ -274,13 +291,23 @@ export function applyMove(state: GameState, move: Move): MoveResult {
   const comboMult = config.mode === 'time' ? comboMultiplier(config, combo) : 1;
   if (combo > 1) events.push({ type: 'combo', count: combo, multiplier: comboMult });
 
-  // The streak: every powerStreak-th hand of a type fires that hand's power.
-  const streak = state.powerCounts[hand] + 1;
-  const power: PowerKind | null = config.powerStreak > 0 && streak >= config.powerStreak ? def.power : null;
-  const powerCounts = { ...state.powerCounts, [hand]: power ? 0 : streak };
+  // Variety run: different hands in a row. A repeat starts it again; the varietyLength-th different
+  // hand completes it, scores ×varietyMultiplier and fires its power.
+  const run = state.variety.includes(hand) ? [hand] : [...state.variety, hand];
+  const varietyDone = config.varietyLength > 0 && run.length >= config.varietyLength;
+  const power: PowerKind | null = varietyDone ? def.power : null;
+  const variety = varietyDone ? [] : run;
+  if (varietyDone) events.push({ type: 'variety', hands: run, multiplier: config.varietyMultiplier });
+
+  // Tokens: this hand spends one, every other hand with a limit gets one back.
+  const tokens = Object.fromEntries(HAND_TYPES.map((h) => {
+    const max = config.hands[h].tokens;
+    if (max === undefined) return [h, 0];
+    return [h, h === hand ? state.tokens[h] - 1 : Math.min(max, state.tokens[h] + 1)];
+  })) as Record<HandType, number>;
 
   const goldenMult = config.goldenMultiplier ** cards.filter((c) => c.golden).length;
-  const powerMult = power === 'double' ? 2 : 1;
+  const powerMult = (power === 'double' ? 2 : 1) * (varietyDone ? config.varietyMultiplier : 1);
   const points = Math.round(handPoints(hand, cards, config) * comboMult * goldenMult * powerMult);
   events.push({ type: 'hand', hand, path: move.path, cards, points, comboMultiplier: comboMult, goldenMultiplier: goldenMult });
   const powerEvent = (cells: readonly Pos[]) => events.push({ type: 'power', hand, power: power!, cells });
@@ -360,7 +387,8 @@ export function applyMove(state: GameState, move: Move): MoveResult {
     bestMove: Math.max(state.bestMove, total),
     bestHand,
     handCounts,
-    powerCounts,
+    tokens,
+    variety,
     history: [...state.history, move],
   };
   const played = ensurePlayable(next, events);
@@ -376,7 +404,8 @@ export function applyMove(state: GameState, move: Move): MoveResult {
 /** Shuffles the board while it has fewer than minValidMoves hands; deals a new one if that fails. */
 function ensurePlayable(state: GameState, events: GameEvent[]): { state: GameState } {
   const config = state.config;
-  if (config.minValidMoves <= 0 || countHands(state.board, config, config.minValidMoves) >= config.minValidMoves) return { state };
+  const enough = (board: Board) => countHands(board, config, config.minValidMoves, state.tokens) >= config.minValidMoves;
+  if (config.minValidMoves <= 0 || enough(state.board)) return { state };
   let rng = state.rngState;
   const start = state.board;
   const positions = allPositions(start).filter((p) => cellAt(start, p));
@@ -389,7 +418,7 @@ function ensurePlayable(state: GameState, events: GameEvent[]): { state: GameSta
     }
     const board = mutableCopy(start);
     positions.forEach((p, i) => (board[p.row][p.col] = cards[i]));
-    if (countHands(board, config, config.minValidMoves) >= config.minValidMoves) {
+    if (enough(board)) {
       const moves: Fall[] = positions.map((p, i) => {
         const from = positions.find((q) => cellAt(start, q)!.id === cards[i].id)!;
         return { id: cards[i].id, from, to: p };
@@ -403,7 +432,7 @@ function ensurePlayable(state: GameState, events: GameEvent[]): { state: GameSta
   for (;;) {
     const board = mutableCopy(start).map((row) => row.map(() => null as Cell));
     for (const p of emptyCells(board)) board[p.row][p.col] = deal(d, config);
-    if (countHands(board, config, config.minValidMoves) >= config.minValidMoves) {
+    if (enough(board)) {
       events.push({ type: 'regenerate', board });
       return { state: { ...state, board, rngState: d.rng, shoe: d.shoe, queue: d.queue, nextId: d.nextId, shuffles: state.shuffles + 1 } };
     }

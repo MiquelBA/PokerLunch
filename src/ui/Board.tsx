@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import { samePos } from '../engine/board';
 import { handOf, handPoints, pathCards, traceStatus, type TraceStatus } from '../engine/game';
-import type { Board as BoardData, Card, GameConfig, HandType, Pos } from '../engine/types';
+import type { Board as BoardData, Card, GameConfig, HandCounts, HandType, Pos } from '../engine/types';
 import { CardBack, CardFace } from './CardFace';
 import { FxLayer } from './fx/FxLayer';
 import { dealDelay, type Frame, type Ghost } from './frames';
@@ -14,6 +14,8 @@ interface BoardProps {
   readonly board: BoardData;
   readonly frame: Frame;
   readonly config: GameConfig;
+  /** Tokens left per hand: a hand without any shows as spent. */
+  readonly tokens: HandCounts;
   readonly hint: readonly Pos[] | null;
   readonly enabled: boolean;
   /** Cards show their backs (before the game starts); turning this off flips them in a wave. */
@@ -27,7 +29,7 @@ interface BoardProps {
 
 const px = (p: { row: number; col: number }, c: CellSize) => `translate3d(${p.col * c.w}px, ${p.row * c.h}px, 0)`;
 
-export function Board({ board, frame, config, hint, enabled, faceDown, onPlay, onActivity, onTrace, onReject }: BoardProps) {
+export function Board({ board, frame, config, tokens, hint, enabled, faceDown, onPlay, onActivity, onTrace, onReject }: BoardProps) {
   const rows = config.rows;
   const cols = config.cols;
   const areaRef = useRef<HTMLDivElement>(null);
@@ -99,7 +101,7 @@ export function Board({ board, frame, config, hint, enabled, faceDown, onPlay, o
     if (!next.length) { onTrace(0, null, null, 0, grew); return; }
     const hand = handOf(board, next, config);
     const points = hand ? handPoints(hand, pathCards(board, next)!, config) : 0;
-    onTrace(next.length, traceStatus(board, next, config), hand, points, grew);
+    onTrace(next.length, traceStatus(board, next, config, tokens), hand, points, grew);
   };
 
   const setTrace = (next: readonly Pos[]) => {
@@ -202,7 +204,7 @@ export function Board({ board, frame, config, hint, enabled, faceDown, onPlay, o
   };
 
   const shownPath = enabled ? path : [];
-  const status = shownPath.length ? traceStatus(board, shownPath, config) : null;
+  const status = shownPath.length ? traceStatus(board, shownPath, config, tokens) : null;
   const marked = new Set(shownPath.map((p) => `${p.row},${p.col}`));
   const hinted = new Set((hint ?? []).map((p) => `${p.row},${p.col}`));
   const centres = shownPath.map((p) => cellCentre(p, cell));

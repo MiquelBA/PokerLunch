@@ -19,7 +19,7 @@ export const SUIT_SYMBOLS = ['♠', '♥', '♦', '♣'] as const;
 
 export const UI = {
   /** Cells are taller than wide, so cards look like cards. */
-  cellAspect: 1.28,
+  cellAspect: 1.36,
   /** A cell is marked only when the finger is within this fraction of the cell from its centre. */
   hitRadius: 0.4,
   countdown: { steps: 3, stepMs: 700, goMs: 650 },

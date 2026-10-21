@@ -2,8 +2,8 @@
 
 Poker Lunch comparteix el projecte de Supabase d'Orca Lunch (`gjfkfmqweimyjvapdoof`). Les taules, les polítiques i els límits ja hi són (els SQL són al repositori d'Orca Lunch: `leaderboard.sql`, `protect-and-stats.sql`, `daily.sql`), així que no cal executar res.
 
-- Rànquing general: `poker-v1`. Canvia la versió a `src/leaderboard/config.ts` quan canviï la puntuació, per començar una classificació nova.
-- Repte del dia: `poker-v1-d20261021`. Una sola puntuació per jugador i només el dia del repte o l'endemà (ho imposa la base de dades).
+- Rànquing general: `poker-v2`. Canvia la versió a `src/leaderboard/config.ts` quan canviï la puntuació, per començar una classificació nova.
+- Repte del dia: `poker-v2-d20261021`. Una sola puntuació per jugador i només el dia del repte o l'endemà (ho imposa la base de dades).
 - Límits de la base de dades: noms de la llista `banned-words.txt`, puntuacions d'1 a 400.000, 100 s entre dues puntuacions d'un mateix jugador i 60 al dia.
 - Moderació: posa `hidden = true` a la fila (Table editor) per treure-la de la classificació.
 

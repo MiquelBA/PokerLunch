@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { cardsOf } from '../board';
 import { makeConfig } from '../config';
-import { applyMove, findHands, newGame, replay, tick } from '../game';
+import { applyMove, findHands, newGame, replay, tick, traceStatus } from '../game';
 import { formatBoard, parseBoard, parseCards } from '../notation';
 import type { GameEvent, Pos } from '../types';
 
@@ -19,8 +19,8 @@ describe('a played hand', () => {
     expect(formatBoard(state.board)).toBe('AS AH AD\n2S 3S 4S\n5H 6H 8C');
     const hand = events.find((e) => e.type === 'hand')!;
     expect(hand.type === 'hand' && hand.hand).toBe('trips');
-    // 60 + (7 × 3) × 2 pips
-    expect(state.score).toBe(102);
+    // 160 + (7 × 3) × 1 pip
+    expect(state.score).toBe(181);
   });
 
   it('works traced in any order and through diagonals', () => {
@@ -53,7 +53,7 @@ describe('a played hand', () => {
     const config = makeConfig({ ...noShuffle });
     const s = newGame({ board, config, queue: parseCards('9S 9H 9D 9C 9S 9H') });
     const first = applyMove(s, { path: [P(2, 0), P(2, 1), P(2, 2)], atMs: 1000 });
-    expect(first.state.score).toBe(204);
+    expect(first.state.score).toBe(362);
     const second = applyMove(first.state, { path: [P(0, 0), P(0, 1), P(0, 2)], atMs: 2000 });
     const combo = second.events.find((e) => e.type === 'combo');
     expect(combo && combo.type === 'combo' && combo.multiplier).toBe(1.2);
@@ -140,24 +140,29 @@ describe('the game', () => {
   });
 });
 
-describe('powers: the third hand of a type', () => {
+describe('variety: three different hands in a row', () => {
   const ready = (hand: 'trips' | 'flush' | 'fullHouse' | 'straight' | 'quads', board: string, queue = '') => {
     const rows = parseBoard(board);
     const config = makeConfig({ ...noShuffle, rows: rows.length, cols: rows[0].length });
     const s = newGame({ board: rows, config, queue: parseCards(queue) });
-    return { ...s, powerCounts: { ...s.powerCounts, [hand]: 2 } };
+    // Two other hands already in the run: this one completes it.
+    return { ...s, variety: (['twoPair', 'fiveKind', 'royalFlush'] as const).filter((h) => h !== hand).slice(0, 2) };
   };
   const powerOf = (events: readonly GameEvent[]) => events.find((e) => e.type === 'power');
 
-  it('counts towards the streak and starts again after firing', () => {
+  it('a repeated hand starts the run again; a completed run fires ×2 and the power', () => {
     const board = parseBoard(`
       2S 3S 4S
       5H 6H 8C
       7S 7H 7D`);
     const s = newGame({ board, config: noShuffle, queue: parseCards('AS AH AD') });
-    const one = applyMove(s, { path: [P(2, 0), P(2, 1), P(2, 2)] });
-    expect(one.state.powerCounts.trips).toBe(1);
-    expect(powerOf(one.events)).toBeUndefined();
+    const repeat = applyMove({ ...s, variety: ['twoPair', 'trips'] }, { path: [P(2, 0), P(2, 1), P(2, 2)] });
+    expect(repeat.state.variety).toEqual(['trips']);
+    expect(powerOf(repeat.events)).toBeUndefined();
+    const done = applyMove({ ...s, variety: ['twoPair', 'flush'] }, { path: [P(2, 0), P(2, 1), P(2, 2)] });
+    expect(done.state.variety).toEqual([]);
+    expect(done.events.some((e) => e.type === 'variety')).toBe(true);
+    expect(done.state.score).toBe(181 * 2);
   });
 
   it('trips: one of the new cards is a joker', () => {
@@ -169,7 +174,6 @@ describe('powers: the third hand of a type', () => {
     const power = powerOf(events);
     expect(power?.type === 'power' && power.power).toBe('joker');
     expect(cardsOf(state.board).filter((c) => c.joker)).toHaveLength(1);
-    expect(state.powerCounts.trips).toBe(0);
   });
 
   it('flush: a storm sweeps every card of its suit', () => {
@@ -216,6 +220,32 @@ describe('powers: the third hand of a type', () => {
     const doubled = applyMove(ready('quads', board, 'AS AH AD AC AS AH AD AC'), { path: [P(1, 0), P(0, 0), P(0, 1), P(0, 2)] });
     const handPts = (ev: readonly GameEvent[]) => ev.find((e) => e.type === 'hand')!;
     const a = handPts(base.events), b = handPts(doubled.events);
-    expect(a.type === 'hand' && b.type === 'hand' && b.points).toBe(a.type === 'hand' ? a.points * 2 : 0);
+    // ×2 for the run and ×2 for the power.
+    expect(a.type === 'hand' && b.type === 'hand' && b.points).toBe(a.type === 'hand' ? a.points * 4 : 0);
+  });
+});
+
+describe('tokens', () => {
+  const board = `
+      7S 7H 7D
+      2S 3S 4S
+      5H 6H 8C`;
+  it('a hand without tokens left cannot be played, and shows as spent', () => {
+    const s = newGame({ board: parseBoard(board), config: noShuffle, queue: parseCards('AS AH AD') });
+    const empty = { ...s, tokens: { ...s.tokens, trips: 0 } };
+    expect(applyMove(empty, { path: [P(0, 0), P(0, 1), P(0, 2)] }).events).toEqual([]);
+    // Three sevens could still grow into a full house or quads; with no room to grow, they are spent.
+    expect(traceStatus(empty.board, [P(0, 0), P(0, 1), P(0, 2)], empty.config, empty.tokens)).toBe('partial');
+    expect(traceStatus(empty.board, [P(0, 0), P(0, 1), P(0, 2)], makeConfig({ ...noShuffle, maxLength: 3 }), empty.tokens)).toBe('spent');
+    expect(findHands(empty.board, empty.config, Infinity, empty.tokens).some((h) => h.hand === 'trips')).toBe(false);
+  });
+
+  it('a hand spends one token and every other limited hand gets one back', () => {
+    const s = newGame({ board: parseBoard(board), config: noShuffle, queue: parseCards('AS AH AD') });
+    const start = { ...s, tokens: { ...s.tokens, flush: 0 } };
+    const { state } = applyMove(start, { path: [P(0, 0), P(0, 1), P(0, 2)] });
+    expect(state.tokens.trips).toBe(s.tokens.trips - 1);
+    expect(state.tokens.flush).toBe(1);
+    expect(state.tokens.straight).toBe(s.tokens.straight);
   });
 });

@@ -1,8 +1,9 @@
-// A playing card: a big number over a big suit, in one of four suit colours. Nothing else, so it
-// reads at a glance on a phone. Suits are drawn as SVG so no phone turns them into emoji.
+// A playing card: real poker cards, "online poker" style (big index at the top left, a big suit or
+// the court figure in the middle), drawn from one SVG sprite (cards/cards.svg, see cards/README.md).
 import { memo } from 'react';
 import type { CardSpec } from '../engine/types';
-import { SUIT_COLORS, SUIT_SYMBOLS } from './uiConfig';
+import sprite from './cards/cards.svg?raw';
+import { SUIT_SYMBOLS } from './uiConfig';
 
 const LABELS: Record<number, string> = { 11: 'J', 12: 'Q', 13: 'K', 14: 'A' };
 
@@ -10,6 +11,24 @@ export function rankLabel(rank: number): string {
   return LABELS[rank] ?? String(rank);
 }
 
+/** The card drawings; rendered once, hidden, so every card can point at its symbol. */
+export function CardSprite() {
+  return <div className="card-sprite" aria-hidden="true" dangerouslySetInnerHTML={{ __html: sprite }} />;
+}
+
+export const CardFace = memo(function CardFace({ card, className = '' }: { card: CardSpec; className?: string }) {
+  const id = card.joker ? 'pl-joker' : `pl-${card.suit}-${card.rank}`;
+  const label = card.joker ? 'Joker' : `${rankLabel(card.rank)}${SUIT_SYMBOLS[card.suit]}`;
+  return (
+    <div className={`card ${card.golden ? 'golden' : ''} ${card.joker ? 'joker' : ''} ${className}`} role="img" aria-label={label}>
+      <svg>
+        <use href={`#${id}`} width="100%" height="100%" />
+      </svg>
+    </div>
+  );
+});
+
+/** A small suit icon (help sheet, card back). */
 export function SuitIcon({ suit }: { suit: number }) {
   return (
     <svg className="suit" viewBox="0 0 24 24" aria-hidden="true">
@@ -27,30 +46,6 @@ export function SuitIcon({ suit }: { suit: number }) {
     </svg>
   );
 }
-
-export const CardFace = memo(function CardFace({ card, className = '' }: { card: CardSpec; className?: string }) {
-  if (card.joker) {
-    return (
-      <div className={`card joker ${className}`} aria-label="Joker">
-        <svg className="joker-star" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 1.8l2.9 6.6 7.2.6-5.5 4.7 1.7 7-6.3-3.8-6.3 3.8 1.7-7L1.9 9l7.2-.6z" />
-        </svg>
-        <span className="joker-label">JOKER</span>
-      </div>
-    );
-  }
-  const label = rankLabel(card.rank);
-  return (
-    <div
-      className={`card ${card.golden ? 'golden' : ''} ${className}`}
-      style={{ ['--suit' as string]: SUIT_COLORS[card.suit] }}
-      aria-label={`${label}${SUIT_SYMBOLS[card.suit]}`}
-    >
-      <span className={`rank ${label.length > 1 ? 'rank-wide' : ''}`}>{label}</span>
-      <SuitIcon suit={card.suit} />
-    </div>
-  );
-});
 
 /** The back of every card: a red lattice in a cream frame, with a gold spade in the middle. */
 export const CardBack = memo(function CardBack() {

@@ -49,8 +49,8 @@ export type HandType = (typeof HAND_TYPES)[number];
 export type BlastKind = 'cross' | 'suit' | 'rank' | 'board' | 'row' | 'storm';
 
 /**
- * What the third hand of the same type in a row of that type does (the "streak"): a joker drops in,
- * extra time, a row blast, a suit storm, a rank turned golden, or double points.
+ * What a hand does when it completes a variety run (varietyLength different hands in a row): a joker
+ * drops in, extra time, a row blast, a suit storm, a rank turned golden, or double points.
  */
 export type PowerKind = 'joker' | 'time' | 'row' | 'storm' | 'gild' | 'double';
 
@@ -59,8 +59,13 @@ export interface HandDef {
   /** Extra game time (time mode). */
   readonly timeBonusMs: number;
   readonly blast?: BlastKind;
-  /** What the hand does every `powerStreak`-th time it is played. */
+  /** What the hand does when it completes a variety run. */
   readonly power: PowerKind;
+  /**
+   * Tokens: how many times in a row the hand can be played. Each play spends one; playing any other
+   * hand gives one back. Undefined = no limit.
+   */
+  readonly tokens?: number;
 }
 
 export type GameMode = 'time' | 'moves';
@@ -81,8 +86,10 @@ export interface GameConfig {
   readonly pointsPerPip: number;
   /** Points per card swept away by a hand's blast. */
   readonly blastPointsPerCard: number;
-  /** Hands of one type needed to fire its power; the count then starts again. */
-  readonly powerStreak: number;
+  /** Different hands in a row that make a variety run; the run then starts again. */
+  readonly varietyLength: number;
+  /** Points multiplier of the hand that completes a variety run. */
+  readonly varietyMultiplier: number;
   /** Extra time from the 'time' power. Not counted against maxTimeBonusMs. */
   readonly powerTimeMs: number;
   readonly comboWindowMs: number;
@@ -123,8 +130,10 @@ export interface GameState {
   readonly bestMove: number;
   readonly bestHand: HandType | null;
   readonly handCounts: HandCounts;
-  /** Progress towards each hand's power: 0..powerStreak − 1. */
-  readonly powerCounts: HandCounts;
+  /** Tokens left for each hand that has a limit (see HandDef.tokens). */
+  readonly tokens: HandCounts;
+  /** The variety run so far: different hands played in a row. */
+  readonly variety: readonly HandType[];
   readonly shuffles: number;
   readonly gameOver: boolean;
   readonly history: readonly Move[];
@@ -164,6 +173,7 @@ export type GameEvent =
       readonly cells: readonly { readonly card: Card; readonly pos: Pos }[];
       readonly points: number;
     }
+  | { readonly type: 'variety'; readonly hands: readonly HandType[]; readonly multiplier: number }
   | {
       readonly type: 'power';
       readonly hand: HandType;

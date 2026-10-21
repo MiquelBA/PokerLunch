@@ -2,9 +2,9 @@
 import type { GameConfig } from './types';
 
 export const DEFAULT_CONFIG: GameConfig = {
-  // 6×6 rather than 7×7: bigger, readable cards, and fewer hands within reach (npm run sim).
-  rows: 6,
-  cols: 6,
+  // 5×5: real cards big enough to read on a phone, and fewer hands within reach (npm run sim).
+  rows: 5,
+  cols: 5,
   minLength: 3,
   maxLength: 5,
   decks: 2,
@@ -12,20 +12,21 @@ export const DEFAULT_CONFIG: GameConfig = {
   goldenChance: 0.04,
   goldenMultiplier: 2,
   hands: {
-    trips: { points: 60, timeBonusMs: 0, power: 'joker' },
-    twoPair: { points: 100, timeBonusMs: 0, power: 'time' },
-    straight: { points: 200, timeBonusMs: 0, power: 'row' },
-    flush: { points: 250, timeBonusMs: 0, power: 'storm' },
-    fullHouse: { points: 400, timeBonusMs: 2000, power: 'gild' },
-    quads: { points: 800, timeBonusMs: 3000, blast: 'cross', power: 'double' },
-    straightFlush: { points: 1500, timeBonusMs: 4000, blast: 'suit', power: 'double' },
-    fiveKind: { points: 3000, timeBonusMs: 4000, blast: 'rank', power: 'double' },
-    royalFlush: { points: 5000, timeBonusMs: 5000, blast: 'board', power: 'double' },
+    trips: { points: 160, timeBonusMs: 0, power: 'joker', tokens: 3 },
+    twoPair: { points: 130, timeBonusMs: 0, power: 'time', tokens: 2 },
+    straight: { points: 170, timeBonusMs: 0, power: 'row', tokens: 2 },
+    flush: { points: 120, timeBonusMs: 0, power: 'storm', tokens: 2 },
+    fullHouse: { points: 220, timeBonusMs: 2000, power: 'gild', tokens: 2 },
+    quads: { points: 600, timeBonusMs: 3000, blast: 'cross', power: 'double' },
+    straightFlush: { points: 1200, timeBonusMs: 4000, blast: 'suit', power: 'double' },
+    fiveKind: { points: 2000, timeBonusMs: 4000, blast: 'rank', power: 'double' },
+    royalFlush: { points: 4000, timeBonusMs: 5000, blast: 'board', power: 'double' },
   },
-  pointsPerPip: 2,
+  pointsPerPip: 1,
   blastPointsPerCard: 25,
-  // Three of the same hand fire its power (REGLES.md).
-  powerStreak: 3,
+  // Three different hands in a row: ×2 and the third hand's power (REGLES.md).
+  varietyLength: 3,
+  varietyMultiplier: 2,
   powerTimeMs: 3000,
   comboWindowMs: 2500,
   comboMultipliers: [1, 1.2, 1.5, 2],
