@@ -63,6 +63,7 @@ export const UI = {
   guideKey: 'poker-lunch:guide-hands',
   varietyTipKey: 'poker-lunch:variety-tip',
   varietyTipMs: 4000,
+  feedbackMaxChars: 1000,
   haptics: {
     step: [10],
     hand: [40],

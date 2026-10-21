@@ -123,10 +123,43 @@ export const STRINGS = {
   bestHand: 'Millor mà',
   hands: 'Mans',
   noHands: 'Cap mà',
-  copyResult: 'Copia el resultat',
-  copied: 'Copiat!',
-  shareText: (score: number, best: string, daily: string | null) =>
-    `${daily ? `Poker Lunch · repte del ${daily}` : 'Poker Lunch'}: ${n(score)} punts${best ? ` · millor mà: ${best}` : ''}`,
+  share: {
+    button: 'Repta un amic',
+    /** Free game: an invitation. Daily challenge: spoiler-free result with the place. */
+    text: (o: { score: number; best: string; daily: string | null; rank: number | null; total: number | null }) => o.daily
+      ? [
+        `🃏 Poker Lunch · Repte ${o.daily}`,
+        o.rank && o.total ? `${n(o.score)} punts · ${ordinal(o.rank)} de ${o.total}` : `${n(o.score)} punts`,
+        o.best ? `Millor mà: ${o.best}` : '',
+        'Em superes?',
+      ].filter(Boolean).join('\n')
+      : `He fet ${n(o.score)} punts a Poker Lunch 🃏${o.best ? ` amb ${o.best.toLowerCase()} inclòs` : ''}. Em superes?`,
+  },
+  rating: {
+    ask: 'T’ha agradat?',
+    up: 'M’ha agradat',
+    down: 'No m’ha agradat',
+    thanks: 'Gràcies!',
+  },
+  install: {
+    button: 'Instal·la l’app',
+    title: 'Afegeix-lo a la pantalla d’inici',
+    iosSteps: [
+      'Obre aquesta pàgina amb Safari.',
+      'Toca el botó Compartir (el quadrat amb la fletxa cap amunt).',
+      'Tria «Afegeix a la pantalla d’inici» i després «Afegeix».',
+    ],
+  },
+  feedback: {
+    button: 'Envia un comentari',
+    title: 'Què en penses?',
+    hint: 'Què t’agrada, què canviaries o què no funciona. Ho llegim tot.',
+    placeholder: 'Escriu aquí…',
+    send: 'Envia',
+    sending: 'Enviant…',
+    thanks: 'Gràcies! Ho hem rebut.',
+    failed: 'No s’ha pogut enviar. Torna-ho a provar d’aquí a una estona.',
+  },
   leaderboard: {
     title: 'Classificació',
     open: 'Classificació',

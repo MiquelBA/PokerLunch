@@ -63,3 +63,8 @@ export async function fetchCount(ranking: string, fetcher?: Fetch): Promise<numb
   const total = Number(response.headers.get('Content-Range')?.split('/')[1]);
   return Number.isFinite(total) ? total : 0;
 }
+
+/** Adds a row to a write-only table (anonymous stats or feedback). */
+export async function insertRow(table: 'events' | 'feedback', row: Record<string, unknown>, fetcher?: Fetch): Promise<void> {
+  await request(table, { method: 'POST', keepalive: true, headers: { Prefer: 'return=minimal' }, body: JSON.stringify(row) }, fetcher);
+}

@@ -10,3 +10,18 @@ Poker Lunch comparteix el projecte de Supabase d'Orca Lunch (`gjfkfmqweimyjvapdo
 Per fer servir un projecte propi, crea'l, executa-hi els tres SQL d'Orca Lunch i posa `VITE_LEADERBOARD_URL` i `VITE_LEADERBOARD_KEY` al build (o canvia `src/leaderboard/config.ts`).
 
 `banned-words.txt` és una còpia de la d'Orca Lunch: si s'hi afegeixen paraules, cal fer-ho també a la base de dades.
+
+## Estadístiques i comentaris
+
+El joc també escriu a les taules `events` (visites, partides, comparticions, instal·lacions, 👍👎) i `feedback` (comentaris) de l'Orca Lunch. Cada fila del Poker porta `meta.game = 'poker'`; les de l'Orca no en porten. Per exemple, al SQL editor de Supabase:
+
+```sql
+-- Últims comentaris del Poker Lunch
+select created_at, message, meta from feedback where meta->>'game' = 'poker' order by created_at desc limit 50;
+
+-- Activitat del Poker per dia
+select date_trunc('day', created_at)::date as dia, kind, count(*) from events
+where meta->>'game' = 'poker' group by 1, 2 order by 1 desc, 2;
+```
+
+Per treure el Poker de les estadístiques de l'Orca, afegeix `and meta->>'game' is null` a les consultes de l'Orca.

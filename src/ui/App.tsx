@@ -1,5 +1,5 @@
 // Screens: menu, game (HUD, board, hand ladder), pause, end of game, how to play, daily challenge.
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 import { handAllowed, type TraceStatus } from '../engine/game';
 import { parseCards } from '../engine/notation';
 import { HAND_TYPES, type GameState, type HandType } from '../engine/types';
@@ -16,6 +16,9 @@ import { useGame, type Floater } from './useGame';
 import { DEFAULT_CONFIG } from '../engine/config';
 import { dailyRanking, LEADERBOARD, leaderboardEnabled } from '../leaderboard/config';
 import { Leaderboard } from '../leaderboard/Leaderboard';
+import { sendFeedback, track } from '../leaderboard/track';
+import { installMode, onInstallChange, promptInstall } from './install';
+import { shareText } from './share';
 
 type Mode = 'free' | 'daily' | 'practice';
 
@@ -36,9 +39,8 @@ export function App() {
   const [mode, setMode] = useState<Mode>('free');
   const [daily, setDaily] = useState(loadDaily);
   const [day, setDay] = useState(dailyDate);
-  const [sheet, setSheet] = useState<'help' | 'ranking' | null>(null);
+  const [sheet, setSheet] = useState<'help' | 'ranking' | 'feedback' | 'install' | null>(null);
   const [trace, setTrace] = useState<Trace>({ length: 0, status: null, hand: null, points: 0 });
-  const [copied, setCopied] = useState(false);
   const modeRef = useRef<Mode>('free');
   const pendingStart = useRef<Mode | null>(null);
 
@@ -54,12 +56,22 @@ export function App() {
       return b;
     });
     if (modeRef.current === 'daily') setDaily((d) => finishOfficial(d, dailyDate(), s.score));
+    track('game_end', s.score, { mode: modeRef.current, moves: s.moves });
   }, []);
 
   const game = useGame(onOver);
   const { state, frame, phase, paused } = game;
 
   useEffect(() => setMuted(!sound), [sound]);
+
+  useEffect(() => track('visit', undefined, { standalone: installMode() === null }), []);
+  // The install offer can arrive (or go) at any time.
+  const [install, setInstall] = useState(installMode);
+  useEffect(() => onInstallChange(() => setInstall(installMode())), []);
+  const offerInstall = async () => {
+    if (install === 'ios') { setSheet('install'); return; }
+    if (await promptInstall()) track('install');
+  };
 
   // Audio can only start inside a touch.
   useEffect(() => {
@@ -83,8 +95,8 @@ export function App() {
       return;
     }
     setNewBest(false);
-    setCopied(false);
     modeRef.current = m;
+    track('game_start', undefined, { mode: m });
     setMode(m);
     if (m === 'daily') {
       setDaily((d) => startOfficial(d, day));
@@ -127,16 +139,6 @@ export function App() {
   const enabled = phase === 'playing' && !paused && !game.busy;
   const streak = currentStreak(daily, day);
 
-  const copyResult = async () => {
-    const bestHand = game.stats?.bestHand ? HAND_NAMES[game.stats.bestHand] : '';
-    const text = STRINGS.shareText(state.score, bestHand, mode === 'free' ? null : shortDate(day));
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-    } catch {
-      setCopied(false);
-    }
-  };
 
   return (
     <div className={`app ${playing || phase === 'over' ? 'in-game' : 'in-menu'}`}>
@@ -232,7 +234,9 @@ export function App() {
           onDaily={startDaily}
           onHelp={() => setSheet('help')}
           onSound={toggleSound}
-          onRanking={leaderboardEnabled() ? () => setSheet('ranking') : undefined}
+          onRanking={leaderboardEnabled() ? () => { track('ranking_view'); setSheet('ranking'); } : undefined}
+          onFeedback={leaderboardEnabled() ? () => setSheet('feedback') : undefined}
+          onInstall={install ? () => void offerInstall() : undefined}
         />
       )}
 
@@ -245,15 +249,15 @@ export function App() {
           mode={mode}
           day={day}
           ranking={!leaderboardEnabled() ? null : mode === 'free' ? LEADERBOARD.rankingId : mode === 'daily' ? dailyRanking(day) : null}
-          copied={copied}
           onAgain={() => begin(mode === 'free' ? 'free' : 'practice')}
           onMenu={game.quit}
-          onCopy={copyResult}
         />
       )}
 
       {sheet === 'help' && <Help onClose={closeHelp} />}
       {sheet === 'ranking' && <RankingSheet day={day} onClose={() => setSheet(null)} />}
+      {sheet === 'feedback' && <FeedbackSheet context={{ phase, score: state.score }} onClose={() => setSheet(null)} />}
+      {sheet === 'install' && <InstallSheet onClose={() => setSheet(null)} />}
     </div>
   );
 }
@@ -404,9 +408,11 @@ interface MenuProps {
   onHelp: () => void;
   onSound: () => void;
   onRanking?: () => void;
+  onFeedback?: () => void;
+  onInstall?: () => void;
 }
 
-function Menu({ best, sound, dailyDone, dailyScore, streak, day, onPlay, onDaily, onHelp, onSound, onRanking }: MenuProps) {
+function Menu({ best, sound, dailyDone, dailyScore, streak, day, onPlay, onDaily, onHelp, onSound, onRanking, onFeedback, onInstall }: MenuProps) {
   const cards = useMemo(() => parseCards('TH JH QH KH AH'), []);
   const ms = msUntilNext();
   return (
@@ -432,6 +438,12 @@ function Menu({ best, sound, dailyDone, dailyScore, streak, day, onPlay, onDaily
         </div>
         {onRanking && <button className="btn small ranking" type="button" onClick={onRanking}>🏆 {STRINGS.leaderboard.open}</button>}
         {best > 0 && <p className="menu-best">{STRINGS.best}: {fmt(best)}</p>}
+        {(onInstall || onFeedback) && (
+          <div className="menu-links">
+            {onInstall && <button className="link-btn" type="button" onClick={onInstall}>📲 {STRINGS.install.button}</button>}
+            {onFeedback && <button className="link-btn" type="button" onClick={onFeedback}>💬 {STRINGS.feedback.button}</button>}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -445,14 +457,20 @@ interface GameOverProps {
   mode: Mode;
   day: string;
   ranking: string | null;
-  copied: boolean;
   onAgain: () => void;
   onMenu: () => void;
-  onCopy: () => void;
 }
 
-function GameOver({ score, best, newBest, stats, mode, day, ranking, copied, onAgain, onMenu, onCopy }: GameOverProps) {
+function GameOver({ score, best, newBest, stats, mode, day, ranking, onAgain, onMenu }: GameOverProps) {
   const shown = useCountUp(score, UI.countUpMs);
+  const [place, setPlace] = useState<{ rank: number; total: number } | null>(null);
+  const share = () => {
+    const text = STRINGS.share.text({
+      score, best: stats.bestHand ? HAND_NAMES[stats.bestHand] : '', daily: mode === 'free' ? null : shortDate(day),
+      rank: place?.rank ?? null, total: place?.total ?? null,
+    });
+    void shareText(text).then((shared) => shared && track('share', score, { mode }));
+  };
   const made = HAND_TYPES.filter((h) => stats.handCounts[h] > 0).reverse();
   return (
     <div className="overlay dim">
@@ -471,12 +489,92 @@ function GameOver({ score, best, newBest, stats, mode, day, ranking, copied, onA
           ))}
         </div>
         <p className="over-line">{STRINGS.bestMove}: {fmt(stats.bestMove)}</p>
-        {ranking && score > 0 && <Leaderboard ranking={ranking} score={score} daily={mode === 'daily'} />}
+        {ranking && score > 0 && <Leaderboard ranking={ranking} score={score} daily={mode === 'daily'} onPlaced={(rank, total) => setPlace({ rank, total })} />}
+        <Rating score={score} mode={mode} />
+        {score > 0 && (
+          <button className="btn share" type="button" onClick={share}><ShareIcon /> {STRINGS.share.button}</button>
+        )}
         <button className="btn primary big" type="button" onClick={onAgain}>{STRINGS.playAgain}</button>
-        <div className="menu-row">
-          <button className="btn small" type="button" onClick={onCopy}>{copied ? STRINGS.copied : STRINGS.copyResult}</button>
-          <button className="btn small" type="button" onClick={onMenu}>{STRINGS.quit}</button>
-        </div>
+        <button className="btn small ghost" type="button" onClick={onMenu}>{STRINGS.quit}</button>
+      </div>
+    </div>
+  );
+}
+
+function ShareIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+      <path d="M12 3 V15 M7 8 L12 3 L17 8" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M5 12 V19 H19 V12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** One tap at the end of a game: did you like it? Stored with the anonymous stats. */
+function Rating({ score, mode }: { score: number; mode: Mode }) {
+  const T = STRINGS.rating;
+  const [answer, setAnswer] = useState<'up' | 'down' | null>(null);
+  if (!leaderboardEnabled()) return null;
+  const rate = (value: 'up' | 'down') => {
+    if (answer) return;
+    setAnswer(value);
+    track('rating', score, { value, mode });
+  };
+  return (
+    <div className="rating">
+      {answer ? <span>{T.thanks}</span> : (
+        <>
+          <span>{T.ask}</span>
+          <button type="button" onClick={() => rate('up')} aria-label={T.up}>👍</button>
+          <button type="button" onClick={() => rate('down')} aria-label={T.down}>👎</button>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** A short message to us (stored with the phone's random id, the phase and the score). */
+function FeedbackSheet({ context, onClose }: { context: Record<string, string | number>; onClose: () => void }) {
+  const T = STRINGS.feedback;
+  const [text, setText] = useState('');
+  const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
+  const send = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!text.trim() || status === 'sending') return;
+    setStatus('sending');
+    try {
+      await sendFeedback(text.trim(), { ...context, ua: navigator.userAgent.slice(0, 200) });
+      setStatus('sent');
+    } catch {
+      setStatus('failed');
+    }
+  };
+  return (
+    <div className="overlay dim" onClick={onClose}>
+      <form className="sheet feedback" onClick={(e) => e.stopPropagation()} onSubmit={send} role="dialog" aria-modal="true" aria-label={T.title}>
+        <h2>{T.title}</h2>
+        {status === 'sent' ? <p>{T.thanks}</p> : (
+          <>
+            <p>{T.hint}</p>
+            <textarea value={text} maxLength={UI.feedbackMaxChars} rows={5} placeholder={T.placeholder} onChange={(e) => setText(e.target.value)} autoFocus />
+            {status === 'failed' && <p className="feedback-error">{T.failed}</p>}
+            <button type="submit" className="btn primary" disabled={!text.trim() || status === 'sending'}>{status === 'sending' ? T.sending : T.send}</button>
+          </>
+        )}
+        <button type="button" className="btn small ghost" onClick={onClose}>{STRINGS.close}</button>
+      </form>
+    </div>
+  );
+}
+
+/** iPhone: how to add the game to the home screen (Safari has no install prompt). */
+function InstallSheet({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="overlay dim" onClick={onClose}>
+      <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={STRINGS.install.title}>
+        <h2>{STRINGS.install.title}</h2>
+        <ol className="install-steps">{STRINGS.install.iosSteps.map((s) => <li key={s}>{s}</li>)}</ol>
+        <button className="btn primary" type="button" onClick={onClose}>{STRINGS.close}</button>
       </div>
     </div>
   );
