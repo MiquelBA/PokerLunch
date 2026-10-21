@@ -147,7 +147,12 @@ export const STRINGS = {
   },
   help: {
     title: 'Com es juga',
-    trace: 'Llisca el dit per cartes veïnes, també en diagonal, i fes una mà de pòquer de 3 a 5 cartes.',
+    moveTitle: 'Arrossega el dit per les cartes',
+    moveLead: 'Ves de carta en carta sense aixecar el dit: amunt, avall, als costats i ',
+    moveDiagonal: 'en diagonal',
+    moveTail: '. Pots girar tant com vulguis.',
+    rose: 'Les 8 cartes del voltant es toquen: pots passar a qualsevol d’elles.',
+    trace: 'Uneix de 3 a 5 cartes que formin una mà de pòquer.',
     all: 'Totes les cartes del traç han de formar part de la mà. L’ordre no importa.',
     time: 'Tens 2 minuts. Les mans grans donen temps extra i mans seguides fan combo.',
     joker: 'El comodí fa de la carta que et falti.',

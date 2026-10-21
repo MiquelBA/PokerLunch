@@ -32,6 +32,9 @@ export const UI = {
   hitRadius: 0.4,
   countdown: { steps: 3, stepMs: 700, goMs: 650 },
   hintDelayMs: 5000,
+  /** Until the player has made this many hands, the hint comes sooner and a finger traces it. */
+  guideHands: 3,
+  guideDelayMs: 4000,
   /**
    * Animation of a move, by hand tier: the cards gather and burst (collect), the blast, the fall.
    * The clock stops meanwhile, so big hands can take their time.
@@ -57,6 +60,7 @@ export const UI = {
   bestKey: 'poker-lunch:best',
   daily: { timeZone: 'Europe/Madrid', key: 'poker-lunch:daily' },
   helpSeenKey: 'poker-lunch:help-seen',
+  guideKey: 'poker-lunch:guide-hands',
   haptics: {
     step: [10],
     hand: [40],

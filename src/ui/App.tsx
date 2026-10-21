@@ -5,6 +5,7 @@ import { parseCards } from '../engine/notation';
 import { HAND_TYPES, type GameState, type HandType } from '../engine/types';
 import { playRung, playSound, setMuted, unlockAudio } from './audio';
 import { Board } from './Board';
+import { NeighbourRose, TraceDemo } from './TraceDemo';
 import { CardFace, CardSprite } from './CardFace';
 import { currentStreak, dailyDate, dailySeed, finishOfficial, loadDaily, msUntilNext, playedToday, shortDate, startOfficial } from './daily';
 import { vibrate } from './haptics';
@@ -165,6 +166,7 @@ export function App() {
             config={state.config}
             tokens={state.tokens}
             hint={game.hint}
+            guide={game.guide}
             enabled={enabled}
             faceDown={game.faceDown}
             onPlay={game.play}
@@ -514,8 +516,11 @@ function Help({ onClose }: { onClose: () => void }) {
     <div className="overlay dim" onClick={onClose}>
       <div className="sheet help" onClick={(e) => e.stopPropagation()}>
         <h2>{H.title}</h2>
-        <p>{H.trace}</p>
-        <p><strong>{H.all}</strong></p>
+        <p className="help-move-title">{H.moveTitle}</p>
+        <TraceDemo />
+        <p className="help-move">{H.moveLead}<strong>{H.moveDiagonal}</strong>{H.moveTail}</p>
+        <div className="help-rose"><NeighbourRose /><span>{H.rose}</span></div>
+        <p>{H.trace} <strong>{H.all}</strong></p>
         <p>{H.time}</p>
         <p>{H.tokens}</p>
         <p>{H.variety}</p>

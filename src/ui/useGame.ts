@@ -7,6 +7,7 @@ import type { GameEvent, GameState, GameStats, HandType, Pos } from '../engine/t
 import { playHand, playSound } from './audio';
 import { dealFrame, idleFrame, moveFrames, type Frame } from './frames';
 import { vibrate } from './haptics';
+import { loadNumber, saveNumber } from './storage';
 import { POWER_NAMES } from './strings';
 import { HAND_TIER, UI } from './uiConfig';
 
@@ -40,6 +41,8 @@ export interface GameApi {
   readonly floaters: readonly Floater[];
   readonly banner: Banner | null;
   readonly hint: readonly Pos[] | null;
+  /** The player is still new: hints come sooner and a finger traces them. */
+  readonly guide: boolean;
   readonly busy: boolean;
   /** The cards show their backs: in the menu and while dealing, until "Som-hi!". */
   readonly faceDown: boolean;
@@ -61,6 +64,8 @@ export function useGame(onOver: (state: GameState) => void): GameApi {
   const [floaters, setFloaters] = useState<Floater[]>([]);
   const [banner, setBanner] = useState<Banner | null>(null);
   const [hint, setHint] = useState<readonly Pos[] | null>(null);
+  const handsMade = useRef(loadNumber(UI.guideKey, 0));
+  const [guide, setGuide] = useState(handsMade.current < UI.guideHands);
   const [stats, setStats] = useState<GameStats | null>(null);
   const [faceDown, setFaceDown] = useState(true);
   const [seed, setSeed] = useState(7);
@@ -206,6 +211,11 @@ export function useGame(onOver: (state: GameState) => void): GameApi {
     if (!events.length) return false;
     setHint(null);
     lastActivity.current = performance.now();
+    if (handsMade.current < UI.guideHands) {
+      handsMade.current += 1;
+      saveNumber(UI.guideKey, handsMade.current);
+      if (handsMade.current >= UI.guideHands) setGuide(false);
+    }
     commit(next);
     react(events);
     queue.current = moveFrames(s.board, events, next.board);
@@ -283,7 +293,7 @@ export function useGame(onOver: (state: GameState) => void): GameApi {
           return;
         }
         // A hint after a while without playing.
-        if (now - lastActivity.current > UI.hintDelayMs) {
+        if (now - lastActivity.current > (handsMade.current < UI.guideHands ? UI.guideDelayMs : UI.hintDelayMs)) {
           lastActivity.current = now;
           const hands = findHands(r.state.board, r.state.config, 12, r.state.tokens);
           if (hands.length) setHint(hands[Math.floor(Math.random() * hands.length)].path);
@@ -320,5 +330,5 @@ export function useGame(onOver: (state: GameState) => void): GameApi {
     setHint(null);
   }, []);
 
-  return { state, frame, phase, paused, countdown, floaters, banner, hint, busy, faceDown, stats, seed, start, play, setPaused, quit, activity };
+  return { state, frame, phase, paused, countdown, floaters, banner, hint, guide, busy, faceDown, stats, seed, start, play, setPaused, quit, activity };
 }

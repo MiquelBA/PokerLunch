@@ -1,12 +1,13 @@
 // The board: cards, tracing with the finger, and the frame-by-frame animations (FLIP with the Web
 // Animations API). Effects are drawn on a canvas over the board.
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import { samePos } from '../engine/board';
 import { handOf, handPoints, pathCards, traceStatus, type TraceStatus } from '../engine/game';
 import type { Board as BoardData, Card, GameConfig, HandCounts, HandType, Pos } from '../engine/types';
 import { CardBack, CardFace } from './CardFace';
 import { FxLayer } from './fx/FxLayer';
 import { dealDelay, type Frame, type Ghost } from './frames';
+import { GhostFinger } from './TraceDemo';
 import { cellCentre, cellsAlong, extendPath, hitCell, type CellSize, type Point } from './trace';
 import { ROYAL_TIER, UI } from './uiConfig';
 
@@ -17,6 +18,8 @@ interface BoardProps {
   /** Tokens left per hand: a hand without any shows as spent. */
   readonly tokens: HandCounts;
   readonly hint: readonly Pos[] | null;
+  /** Show a finger tracing the hint (first games). */
+  readonly guide?: boolean;
   readonly enabled: boolean;
   /** Cards show their backs (before the game starts); turning this off flips them in a wave. */
   readonly faceDown: boolean;
@@ -29,7 +32,7 @@ interface BoardProps {
 
 const px = (p: { row: number; col: number }, c: CellSize) => `translate3d(${p.col * c.w}px, ${p.row * c.h}px, 0)`;
 
-export function Board({ board, frame, config, tokens, hint, enabled, faceDown, onPlay, onActivity, onTrace, onReject }: BoardProps) {
+export function Board({ board, frame, config, tokens, hint, guide, enabled, faceDown, onPlay, onActivity, onTrace, onReject }: BoardProps) {
   const rows = config.rows;
   const cols = config.cols;
   const areaRef = useRef<HTMLDivElement>(null);
@@ -208,6 +211,7 @@ export function Board({ board, frame, config, tokens, hint, enabled, faceDown, o
   const marked = new Set(shownPath.map((p) => `${p.row},${p.col}`));
   const hinted = new Set((hint ?? []).map((p) => `${p.row},${p.col}`));
   const centres = shownPath.map((p) => cellCentre(p, cell));
+  const guidePoints = useMemo(() => (hint && cell.w ? hint.map((p) => cellCentre(p, cell)) : []), [hint, cell]);
   const tier = frame.hand?.tier ?? 0;
 
   return (
@@ -253,6 +257,7 @@ export function Board({ board, frame, config, tokens, hint, enabled, faceDown, o
           <line ref={tailRef} visibility="hidden" strokeWidth={cell.w * 0.09} />
           {centres.map((c, i) => <circle key={i} cx={c.x} cy={c.y} r={cell.w * 0.1} />)}
         </svg>
+        {guide && !shownPath.length && guidePoints.length > 1 && <GhostFinger points={guidePoints} />}
       </div>
       <FxLayer frame={frame} cell={cell} area={areaRef} />
     </div>

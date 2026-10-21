@@ -33,3 +33,20 @@ export function saveFlag(key: string, value: boolean): void {
     // Storage unavailable: the setting lasts this visit only.
   }
 }
+
+export function loadNumber(key: string, fallback: number): number {
+  try {
+    const v = Number(localStorage.getItem(key));
+    return Number.isFinite(v) && localStorage.getItem(key) !== null ? v : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+export function saveNumber(key: string, value: number): void {
+  try {
+    localStorage.setItem(key, String(value));
+  } catch {
+    // Storage unavailable: kept for this visit only.
+  }
+}

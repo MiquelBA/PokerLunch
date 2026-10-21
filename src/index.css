@@ -578,3 +578,42 @@ button:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
 .tabs { display: flex; gap: 6px; padding: 4px; border-radius: 999px; background: rgba(0, 0, 0, 0.3); }
 .tabs button { flex: 1; padding: 8px 10px; border: none; border-radius: 999px; background: none; font-size: 15px; }
 .tabs button.on { background: var(--gold); color: var(--ink); }
+
+/* ---- Help: how to move ---- */
+.help-move-title { text-align: center; font-family: var(--display); font-size: 28px !important; font-weight: 400 !important; color: var(--cyan); letter-spacing: 0.02em; }
+.help-move { font-size: 19px !important; text-align: center; }
+.help-move strong { color: var(--cyan); }
+.trace-demo {
+  position: relative; width: min(100%, 250px); margin: 0 auto; display: grid; flex: none;
+  grid-template-columns: repeat(4, 1fr); gap: 4px;
+  padding: 6px; border-radius: 14px; background: rgba(0, 0, 0, 0.28); box-shadow: inset 0 0 0 2px rgba(255, 201, 60, 0.35);
+}
+.demo-cell { position: relative; min-width: 0; aspect-ratio: 5 / 7; transition: transform 160ms ease; }
+.demo-cell .card { width: 100%; height: 100%; }
+.demo-cell.lit { transform: scale(1.06); }
+.demo-cell.lit .card { box-shadow: 0 0 0 3px var(--cyan), 0 0 14px var(--cyan); }
+.demo-cell.won .card { box-shadow: 0 0 0 3px var(--gold), 0 0 18px var(--gold); }
+.demo-line { position: absolute; inset: 6px; width: calc(100% - 12px); height: calc(100% - 12px); pointer-events: none; overflow: visible; transition: opacity 300ms; }
+.demo-line.out { opacity: 0; }
+.demo-line polyline { fill: none; stroke: var(--cyan); stroke-width: 11px; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; opacity: 0.95; filter: drop-shadow(0 0 4px var(--cyan)); }
+.demo-label {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); pointer-events: none;
+  font-family: var(--display); font-size: 40px; color: var(--gold); white-space: nowrap;
+  text-shadow: 0 3px 0 #7A4A00, 0 0 16px rgba(255, 201, 60, 0.9); animation: demo-pop 380ms cubic-bezier(.2, 1.6, .4, 1) both;
+}
+@keyframes demo-pop { from { transform: translate(-50%, -50%) scale(0.3); opacity: 0; } }
+.finger {
+  position: absolute; width: 22%; aspect-ratio: 48 / 64; pointer-events: none; z-index: 5;
+  /* The fingertip (about 40% across, 4% down the icon) sits on the point. */
+  translate: -40% -4%; opacity: 0; transition: opacity 250ms, scale 160ms;
+  filter: drop-shadow(0 0 3px #000) drop-shadow(0 5px 6px rgba(0, 0, 0, 0.6));
+}
+.finger.on { opacity: 1; }
+.finger.pressed { scale: 0.86; }
+.ghost-finger { width: 15%; transition: none; }
+.help-rose { display: flex; align-items: center; gap: 12px; font-size: 16px; font-weight: 600; }
+.rose { display: grid; grid-template-columns: repeat(3, 22px); grid-template-rows: repeat(3, 26px); place-items: center; flex: none; }
+.rose-card { width: 30px; height: 41px; }
+.rose-card .card { width: 100%; height: 100%; }
+.rose-arrow { font-size: 18px; font-weight: 900; color: var(--cyan); line-height: 1; }
+.rose-arrow.diag { color: var(--gold); }
