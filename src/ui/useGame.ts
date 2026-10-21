@@ -41,7 +41,7 @@ export interface GameApi {
   readonly floaters: readonly Floater[];
   readonly banner: Banner | null;
   readonly hint: readonly Pos[] | null;
-  /** The player is still new: hints come sooner and a finger traces them. */
+  /** The player is still new: a finger traces the hints. */
   readonly guide: boolean;
   readonly busy: boolean;
   /** The cards show their backs: in the menu and while dealing, until "Som-hi!". */

@@ -62,6 +62,7 @@ Calibratge (`npm run sim -- 12 30`, 30 jugades): un bot que mira la varietat fa 
 
 ## 5. Partida
 - Les cartes es reparteixen cap per avall durant el compte enrere i es giren totes alhora al «Som-hi!».
+- **Pista**: després de 20 s sense jugar, s'il·luminen les cartes d'una mà possible (en les 3 primeres mans d'un jugador nou, un dit la dibuixa).
 - 2 minuts, amb compte enrere. El rellotge s'atura mentre es reprodueixen les animacions i quan l'app passa a segon pla.
 - **Repte diari**: la mateixa llavor per a tothom cada dia (hora de Barcelona); només compta el primer intent, després és pràctica. Ratxa de dies seguits.
 - **Classificació** compartida (Supabase): una general (partides lliures, rànquing `poker-v3`) i una per a cada repte diari (només el primer intent).
