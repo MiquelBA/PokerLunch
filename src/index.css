@@ -66,6 +66,8 @@ button:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
   padding-left: max(12px, env(safe-area-inset-left, 0px));
   padding-right: max(12px, env(safe-area-inset-right, 0px));
   gap: 6px;
+  /* Never taller than the screen: overflow here makes the page scrollable and iOS then scrolls the game off the top. */
+  overflow: clip;
 }
 
 /* ------------------------------------------------------------ HUD */
@@ -108,6 +110,8 @@ button:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
   align-items: center;
   justify-content: center;
   gap: 6px;
+  /* The board is sized from the height really left between the HUD and the ladder (which wraps to more rows on narrow phones). */
+  container-type: size;
 }
 .trace-label {
   height: 30px;
@@ -128,6 +132,7 @@ button:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
   position: relative;
   /* As wide as the column allows, but never taller than the space left for it. */
   width: min(100%, 500px, calc((100dvh - 230px - var(--safe-top) - var(--safe-bottom)) / 1.28));
+  width: min(100%, 500px, calc((100cqh - 36px) / 1.36));
 }
 .board {
   position: relative;
