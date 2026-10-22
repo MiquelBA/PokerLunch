@@ -675,11 +675,57 @@ button:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
 .block-cell.hp-2 { background: repeating-linear-gradient(45deg, #6E7480 0 6px, #5A606B 6px 12px); box-shadow: inset 0 0 0 3px #2A2D33, inset 0 -6px 0 rgba(0, 0, 0, 0.35), 0 4px 8px rgba(0, 0, 0, 0.4); }
 .block-cell.hp-2 i { background: #1B1B22; box-shadow: 0 2px 0 #000, inset 0 0 0 2px #FFD54A; }
 
+/* Fog: a face-down card under a drifting mist. */
+.flipper > .fog-cell { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.fog-cell { position: relative; width: 100%; height: 100%; border-radius: 7.5% / 5.4%; }
+.fog-cell .card-back { width: 100%; height: 100%; box-sizing: border-box; filter: saturate(0.35) brightness(0.8); }
+.fog-cell .mist { position: absolute; inset: -6%; overflow: hidden; border-radius: 12%; pointer-events: none; }
+.fog-cell .mist i {
+  position: absolute; inset: 0 -60%;
+  background:
+    radial-gradient(ellipse 30% 22% at 20% 30%, rgba(235, 240, 248, 0.85), transparent 70%),
+    radial-gradient(ellipse 26% 20% at 55% 62%, rgba(220, 228, 240, 0.8), transparent 70%),
+    radial-gradient(ellipse 30% 24% at 85% 28%, rgba(240, 244, 250, 0.75), transparent 70%),
+    radial-gradient(ellipse 24% 18% at 40% 88%, rgba(225, 232, 244, 0.7), transparent 70%);
+  animation: mist 7s ease-in-out infinite alternate;
+}
+.fog-cell .mist i + i { animation-duration: 9s; animation-direction: alternate-reverse; opacity: 0.7; transform: scaleY(-1); }
+@keyframes mist { from { translate: -18% 0; } to { translate: 18% 0; } }
+/* A chain across the card, with a padlock; the colour tells which chain it is. */
+.card .chain { position: absolute; inset: 0; pointer-events: none; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.55)); }
+.card .chain svg { width: 100%; height: 100%; display: block; }
+.card .chain .links rect { fill: none; stroke: var(--chain); stroke-width: 4.5; }
+.card .chain .lock path { stroke: var(--chain); }
+.card .chain .lock rect { fill: var(--chain); stroke: rgba(0, 0, 0, 0.35); stroke-width: 1.5; }
+.card .chain .lock .hole { fill: #1B1B22; }
+.chain-1 { --chain: #C9CDD6; }
+.chain-2 { --chain: #FFC93C; }
+.chain-3 { --chain: #4FD1FF; }
+.chain-4 { --chain: #FF5C8A; }
+.chain-5 { --chain: #7CE07C; }
+.chain-6 { --chain: #B48CFF; }
+/* Golden squares: a glowing gold tile under the card, and ×2 in its corner. */
+.gold-square {
+  position: absolute; left: 0; top: 0; pointer-events: none; border-radius: 14%;
+  background: radial-gradient(circle, rgba(255, 213, 74, 0.55), rgba(255, 170, 30, 0.25) 70%);
+  box-shadow: inset 0 0 0 3px rgba(255, 213, 74, 0.95), 0 0 16px 2px rgba(255, 201, 60, 0.75);
+  animation: gold-square 1.4s ease-in-out infinite alternate;
+}
+.gold-square-badge {
+  position: absolute; left: 0; top: 0; pointer-events: none; z-index: 3;
+  display: flex; align-items: flex-start; justify-content: flex-end;
+}
+.gold-square-badge b {
+  margin: -6% -4% 0 0; padding: 1px 5px; border-radius: 8px; font-size: 11px; font-weight: 900; line-height: 1.3;
+  color: #3A2600; background: linear-gradient(180deg, #FFE48A, #FFB020); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+@keyframes gold-square { to { box-shadow: inset 0 0 0 3px #FFF3B0, 0 0 26px 6px rgba(255, 201, 60, 0.95); } }
+
 /* ---- Poker Tour: menu, map, level card, goals, result ---- */
-/* The Poker Tour's button: as big as Juga, in the three cities' colours, with a passing shine. */
+/* The Poker Tour's button: as big as Juga, in the six cities' colours, with a passing shine. */
 .btn.tour-hero {
   position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 64px;
-  background: linear-gradient(100deg, #1F7A55 0%, #1D4E89 50%, #8E1B2C 100%);
+  background: linear-gradient(100deg, #1F7A55 0%, #1D4E89 22%, #4A5368 42%, #A3202E 60%, #2D7A9A 78%, #5B1A8E 100%);
   box-shadow: inset 0 0 0 3px var(--gold), 0 4px 0 #7A5207, 0 8px 18px rgba(0, 0, 0, 0.35);
 }
 .btn.tour-hero::after {
@@ -705,26 +751,98 @@ button:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
 .tour-map-head .btn { justify-self: start; flex: none; min-height: 40px; padding: 0 10px; }
 .tour-map-head h2 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 34px; color: var(--gold); letter-spacing: 0.03em; }
 .tour-total { justify-self: end; font-weight: 800; color: var(--gold); }
-.tour-section { border-radius: 18px; padding: 12px; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.12), 0 8px 18px rgba(0, 0, 0, 0.35); }
-.tour-section.theme-barcelona { background: linear-gradient(160deg, #1F7A55, #0B3B2E); }
-.tour-section.theme-montecarlo { background: linear-gradient(160deg, #1D4E89, #0B2244); }
-.tour-section.theme-vegas { background: linear-gradient(160deg, #8E1B2C, #3A0A12); box-shadow: inset 0 0 0 2px rgba(255, 201, 60, 0.45), 0 8px 18px rgba(0, 0, 0, 0.35); }
-.tour-section-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
-.tour-section-head h3 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 28px; letter-spacing: 0.03em; }
-.tour-section-head span { font-weight: 800; color: var(--gold); }
-.tour-levels { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+/* Each city: its skyline over its sky, then a winding path of chips. */
+.city { --sky1: #F2994A; --sky2: #8E3B46; --ground: #0B3B2E; --fill: #1F7A55;
+  position: relative; border-radius: 22px; overflow: hidden; background: linear-gradient(180deg, var(--fill), var(--ground));
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.14), 0 10px 22px rgba(0, 0, 0, 0.4); }
+.city.theme-barcelona { --sky1: #FFB45E; --sky2: #D9534F; --sk: #0E3A2B; --fill: #1F7A55; --ground: #0B3B2E; --sea: #2A8FB8; }
+.city.theme-montecarlo { --sky1: #6FA8FF; --sky2: #1B2F6B; --sk: #0B1B3E; --fill: #1D4E89; --ground: #0B2244; --sea: #3C7BD9; }
+.city.theme-london { --sky1: #B9C2D0; --sky2: #5A6378; --sk: #222836; --fill: #4A5368; --ground: #1E2433; --sea: #8A93A6; }
+.city.theme-macau { --sky1: #FF8A5C; --sky2: #7A0F2A; --sk: #2D0612; --fill: #A3202E; --ground: #3D0812; --sea: #FFC93C; }
+.city.theme-atlantic { --sky1: #FFD27A; --sky2: #E0607E; --sk: #3A1430; --fill: #2D7A9A; --ground: #0D2E45; --sea: #3FB6D9; }
+.city.theme-vegas { --sky1: #C04CFF; --sky2: #1A0638; --sk: #12031F; --fill: #5B1A8E; --ground: #1A0633; --sea: #FF3D8B; box-shadow: inset 0 0 0 2px rgba(255, 201, 60, 0.55), 0 0 24px rgba(192, 76, 255, 0.35); }
+.city.closed .city-path { filter: grayscale(0.7) brightness(0.75); }
+.city-banner { position: relative; height: 128px; background: linear-gradient(180deg, var(--sky2) 0%, var(--sky1) 100%); }
+.city-banner::before { /* A few stars twinkling in the sky. */
+  content: ''; position: absolute; inset: 0 0 40% 0; opacity: 0.8;
+  background-image: radial-gradient(1.5px 1.5px at 12% 22%, #fff 50%, transparent), radial-gradient(1px 1px at 34% 12%, #fff 50%, transparent), radial-gradient(1.5px 1.5px at 62% 30%, #fff 50%, transparent), radial-gradient(1px 1px at 84% 16%, #fff 50%, transparent), radial-gradient(1px 1px at 48% 40%, #fff 50%, transparent);
+  animation: twinkle 3s ease-in-out infinite alternate;
+}
+@keyframes twinkle { to { opacity: 0.3; } }
+.skyline { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 92px; }
+.skyline .sk-back { fill: var(--sk); opacity: 0.45; }
+.skyline .sk-fill { fill: var(--sk); }
+.skyline .sk-line { stroke: var(--sk); fill: none; }
+.skyline .sk-line .sk-fill { fill: var(--sk); }
+.skyline .sk-sea { fill: var(--sea); opacity: 0.7; }
+.skyline .sk-glow { fill: #FFE48A; filter: drop-shadow(0 0 4px #FFD54A); animation: twinkle 1.6s ease-in-out infinite alternate; }
+.skyline .sk-neon { stroke: #FF3D8B; stroke-width: 2; filter: drop-shadow(0 0 3px #FF3D8B); animation: twinkle 0.9s steps(2) infinite alternate; }
+.city-title { position: absolute; left: 14px; top: 10px; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4), 0 0 12px rgba(0, 0, 0, 0.4); }
+.city-title small { display: block; font-size: 13px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #FFF8E7; opacity: 0.9; }
+.city-title h3 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 38px; line-height: 1; letter-spacing: 0.03em; color: #fff; }
+.city-stars { position: absolute; right: 12px; top: 12px; padding: 3px 10px; border-radius: 999px; background: rgba(0, 0, 0, 0.45); font-weight: 800; color: var(--gold); }
+.city .tour-gate { margin: 10px 14px 0; }
+.city-path { position: relative; margin: 0 6%; }
+.city-path > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.city-path .route { fill: none; stroke: rgba(255, 248, 231, 0.55); stroke-width: 5; stroke-dasharray: 2 11; stroke-linecap: round; }
+/* The flight between cities: a dotted route; the plane flies along it when a city opens. */
+.flight { position: relative; width: 300px; height: 70px; margin: -4px auto; }
+.flight.mirror { transform: scaleX(-1); }
+.flight > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.flight > svg path { fill: none; stroke: rgba(255, 248, 231, 0.45); stroke-width: 3; stroke-dasharray: 8 8; }
+.flight.open > svg path { stroke: rgba(255, 213, 74, 0.8); }
+.flight .plane {
+  position: absolute; left: 0; top: 0; width: 46px; height: 46px; margin: -23px 0 0 -23px;
+  offset-path: path('M30 6 C 120 76, 180 -6, 270 62'); offset-distance: 100%; offset-rotate: auto;
+  fill: #FFF8E7; filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.5));
+}
+.flight .plane svg { width: 100%; height: 100%; display: block; }
+.flight.flying .plane { animation: fly 2.8s cubic-bezier(.45, 0, .3, 1) 0.6s both; fill: var(--gold); }
+.flight.flying > svg path { stroke-dasharray: 8 8; animation: route-draw 2.8s linear 0.6s both; }
+@keyframes fly { from { offset-distance: 0%; scale: 0.6; } 50% { scale: 1.5; } to { offset-distance: 100%; scale: 1; } }
+@keyframes route-draw { from { stroke: rgba(255, 248, 231, 0.3); } to { stroke: var(--gold); } }
+.flight-lock { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 22px; }
+.flight.mirror .flight-label, .flight.mirror .flight-lock { transform: translate(-50%, -50%) scaleX(-1); }
+.flight-label {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); white-space: nowrap; padding: 4px 12px; border-radius: 999px;
+  margin-top: 26px; background: rgba(0, 0, 0, 0.6); color: var(--gold); font-weight: 800; animation: pop-in 500ms cubic-bezier(.2, 1.8, .4, 1) 3.2s both;
+}
+@keyframes pop-in { from { scale: 0; opacity: 0; } }
+.tour-finale {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 6px auto 0; padding: 14px 18px; border: 0; border-radius: 18px;
+  background: rgba(0, 0, 0, 0.3); color: rgba(255, 248, 231, 0.75); font: inherit; font-weight: 700; text-align: center; cursor: default;
+}
+.tour-finale .trophy { width: 90px; filter: grayscale(1) brightness(0.6); }
+.tour-finale.won { cursor: pointer; color: var(--gold); background: radial-gradient(circle, rgba(255, 201, 60, 0.25), rgba(0, 0, 0, 0.3)); box-shadow: inset 0 0 0 2px var(--gold); }
+.tour-finale.won .trophy { filter: drop-shadow(0 0 12px rgba(255, 201, 60, 0.8)); animation: trophy-bob 2s ease-in-out infinite; }
+@keyframes trophy-bob { 50% { translate: 0 -5px; } }
 .tour-level {
-  aspect-ratio: 1; border: 0; border-radius: 14px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-  background: #FFF8E7; color: #1B1B22; box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35); font: inherit;
+  position: absolute; width: 54px; height: 54px; translate: -50% -50%; border: 0; border-radius: 50%; cursor: pointer; padding: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font: inherit; color: #1B1B22;
+  /* A poker chip: white edge marks on a coloured rim, a cream centre. */
+  background: radial-gradient(circle, #FFF8E7 0 54%, transparent 55%), repeating-conic-gradient(#FFF8E7 0 12deg, #D0182C 12deg 45deg);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35), 0 4px 0 rgba(0, 0, 0, 0.4);
 }
 .tour-level:active { transform: scale(0.95); }
-.tour-level-n { font-family: var(--display); font-size: 26px; line-height: 1; }
-.tour-level.passed { background: #FFEFC2; }
-.tour-level.special { background: linear-gradient(180deg, #FFE58A, #E0A21B); }
-.tour-level.locked { background: rgba(0, 0, 0, 0.35); color: rgba(255, 255, 255, 0.6); box-shadow: none; cursor: default; }
-.tour-level.locked .stars { visibility: hidden; }
-.tour-level.current { box-shadow: 0 0 0 3px var(--cyan), 0 0 16px var(--cyan); animation: current-pulse 1.4s ease-in-out infinite; }
-@keyframes current-pulse { 50% { transform: scale(1.06); } }
+.tour-level-n { font-family: var(--display); font-size: 24px; line-height: 1; }
+.tour-level .stars { font-size: 9px; }
+.tour-level.passed { background: radial-gradient(circle, #FFEFC2 0 54%, transparent 55%), repeating-conic-gradient(#FFF8E7 0 12deg, #13883F 12deg 45deg); }
+.tour-level.special { width: 66px; height: 66px; background: radial-gradient(circle, #FFE58A 0 54%, transparent 55%), repeating-conic-gradient(#FFF8E7 0 12deg, #16181D 12deg 45deg); box-shadow: 0 0 0 3px var(--gold), 0 0 16px rgba(255, 201, 60, 0.7), 0 4px 0 rgba(0, 0, 0, 0.4); }
+.tour-level.locked { background: radial-gradient(circle, #3A3F4A 0 54%, transparent 55%), repeating-conic-gradient(#5A606B 0 12deg, #2A2D33 12deg 45deg); color: rgba(255, 255, 255, 0.6); box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35); cursor: default; }
+.tour-level.locked .tour-level-n { font-size: 18px; }
+.tour-level.current { z-index: 1; box-shadow: 0 0 0 3px var(--cyan), 0 0 18px var(--cyan), 0 4px 0 rgba(0, 0, 0, 0.4); animation: current-pulse 1.4s ease-in-out infinite; }
+/* The player's marker: a gold chip bobbing over the next level, with a ring pulsing out. */
+.chip-marker { position: absolute; left: 50%; bottom: 100%; width: 34px; height: 34px; margin-left: -17px; animation: marker-bob 1s ease-in-out infinite; pointer-events: none; }
+.chip-marker::before {
+  content: ''; position: absolute; inset: 0; border-radius: 50%;
+  background: radial-gradient(circle, #FFE48A 0 40%, transparent 41%), repeating-conic-gradient(#FFF8E7 0 15deg, #E0A21B 15deg 45deg);
+  box-shadow: 0 0 0 2px #7A4A00, 0 6px 8px rgba(0, 0, 0, 0.45);
+}
+.chip-marker::after { content: '♠'; position: absolute; inset: 0; display: grid; place-items: center; font-size: 15px; color: #7A4A00; }
+.chip-marker i { position: absolute; left: 50%; top: calc(100% + 24px); width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%; box-shadow: 0 0 0 3px var(--cyan); animation: marker-ring 1.4s ease-out infinite; }
+@keyframes marker-bob { 50% { translate: 0 -8px; } }
+@keyframes marker-ring { from { scale: 1; opacity: 0.9; } to { scale: 1.9; opacity: 0; } }
+@keyframes current-pulse { 50% { scale: 1.08; } }
 .stars { display: inline-flex; gap: 1px; font-size: 11px; line-height: 1; color: rgba(0, 0, 0, 0.25); }
 .stars i { font-style: normal; }
 .stars i.on { color: #E0A21B; text-shadow: 0 0 2px rgba(255, 201, 60, 0.8); }
@@ -740,6 +858,7 @@ button:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
 .goal-list li.done { background: rgba(80, 220, 140, 0.18); }
 .level-limit { font-weight: 800 !important; }
 .level-element { display: flex; align-items: center; gap: 10px; text-align: left; font-size: 15px; font-weight: 600; }
+.level-element .mini.gold-sample { position: relative; padding: 3px; border-radius: 8px; background: radial-gradient(circle, rgba(255, 213, 74, 0.6), rgba(255, 170, 30, 0.3)); box-shadow: inset 0 0 0 2px #FFD54A, 0 0 10px rgba(255, 201, 60, 0.7); }
 .level-stars { color: var(--gold); font-weight: 800 !important; }
 .level-best { opacity: 0.8; }
 .hud-value.clock.moves small { font-family: var(--body, inherit); font-size: 13px; opacity: 0.8; letter-spacing: 0; }
@@ -781,3 +900,44 @@ button:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
 .help-page .help-hand-name { font-size: 21px; }
 .help-page .help-hand-rule { flex: 1 1 0; min-width: 0; font-size: 13px; text-align: left; }
 .help-page .help-hand-head { flex: 1 1 100%; }
+
+/* ---- Poker Tour champion: drum roll, royal flush, trophy, fireworks, then the card ---- */
+.overlay.champion { z-index: 40; place-items: center; overflow: hidden; background: radial-gradient(ellipse 90% 70% at 50% 35%, #1B1036 0%, #07040F 75%); animation: fade-in 400ms ease-out both; }
+@keyframes fade-in { from { opacity: 0; } }
+.champion-fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; }
+.champion-spots i { position: absolute; top: -20%; width: 40vmax; height: 140vh; background: linear-gradient(180deg, rgba(255, 240, 190, 0.32), transparent 80%); clip-path: polygon(45% 0, 55% 0, 100% 100%, 0 100%); transform-origin: 50% 0; mix-blend-mode: screen; }
+.champion-spots i:first-child { left: 0; animation: spot-l 2.2s ease-in-out infinite alternate; }
+.champion-spots i:last-child { right: 0; animation: spot-r 2.6s ease-in-out infinite alternate; }
+@keyframes spot-l { from { rotate: -30deg; } to { rotate: 20deg; } }
+@keyframes spot-r { from { rotate: 30deg; } to { rotate: -20deg; } }
+.champion-rays { position: absolute; left: 50%; top: 36%; width: 180vmax; height: 180vmax; margin: -90vmax 0 0 -90vmax; opacity: 0; background: repeating-conic-gradient(rgba(255, 201, 60, 0.18) 0 7deg, transparent 7deg 15deg); }
+.phase-boom .champion-rays, .phase-card .champion-rays { animation: rays-in 800ms ease-out both, spin 24s linear infinite; }
+@keyframes rays-in { to { opacity: 1; } }
+@keyframes spin { to { rotate: 360deg; } }
+.champion-stage { position: relative; z-index: 2; width: min(100%, 420px); height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 16px; box-sizing: border-box; }
+.champion-fan { position: relative; width: 100%; height: 170px; }
+.champion-card { position: absolute; left: 50%; top: 10px; width: 92px; height: 130px; margin-left: -46px; transform-origin: 50% 160%; animation: card-fly 600ms cubic-bezier(.2, 1.3, .4, 1) both; rotate: calc(var(--i) * 13deg); }
+.champion-card .card { box-shadow: 0 0 0 2px rgba(255, 201, 60, 0.8), 0 10px 18px rgba(0, 0, 0, 0.5); }
+@keyframes card-fly { from { translate: calc(var(--i) * 120px) 110vh; rotate: calc(var(--i) * 90deg); } }
+.phase-boom .champion-fan, .phase-card .champion-fan { animation: fan-up 900ms cubic-bezier(.5, 0, .3, 1) both; }
+@keyframes fan-up { to { translate: 0 -40px; scale: 0.7; opacity: 0.35; } }
+.phase-card .champion-fan { height: 0; overflow: visible; }
+.champion-trophy { width: 0; height: 0; opacity: 0; }
+.phase-boom .champion-trophy, .phase-card .champion-trophy { width: min(56vw, 230px); height: auto; opacity: 1; margin-top: -150px; filter: drop-shadow(0 0 24px rgba(255, 201, 60, 0.85)); animation: trophy-in 1s cubic-bezier(.2, 1.6, .4, 1) both, trophy-bob 2.4s ease-in-out 1s infinite; }
+.phase-card .champion-trophy { margin-top: 0; width: min(44vw, 180px); }
+@keyframes trophy-in { from { scale: 0.1; rotate: -25deg; opacity: 0; } }
+.champion-title { margin: 0; text-align: center; font-family: var(--display); font-weight: 400; font-size: min(15vw, 64px); line-height: 0.95; letter-spacing: 0.03em; color: var(--gold); text-shadow: 0 4px 0 #7A4A00, 0 0 24px rgba(255, 201, 60, 0.8); opacity: 0; }
+.champion-title small { display: block; font-size: 0.45em; color: #fff; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.5); }
+.phase-boom .champion-title, .phase-card .champion-title { animation: stamp 700ms cubic-bezier(.2, 1.5, .4, 1) 350ms both; }
+@keyframes stamp { from { scale: 3; opacity: 0; } to { opacity: 1; } }
+.champion-card-info { display: none; flex-direction: column; align-items: center; gap: 8px; width: 100%; text-align: center; }
+.phase-card .champion-card-info { display: flex; animation: rise 600ms ease-out both; }
+@keyframes rise { from { translate: 0 30px; opacity: 0; } }
+.champion-card-info p { margin: 0; }
+.champion-stars { font-family: var(--display); font-size: 34px; color: var(--gold); }
+.champion-line { font-size: 19px; font-weight: 800; }
+.champion-cities { font-size: 14px; font-weight: 700; opacity: 0.75; }
+.champion-more { font-size: 14px; opacity: 0.8; }
+.champion-card-info .btn { width: 100%; }
+.champion-btn { animation: glow 700ms ease-in-out infinite alternate; }
+@media (prefers-reduced-motion: reduce) { .champion-rays, .champion-spots i, .champion-trophy, .champion-card { animation: none !important; } }

@@ -164,6 +164,8 @@ export function useGame(onOver: (state: GameState) => void): GameApi {
     if (next.damage) {
       if (next.damage.some((d) => d.obstacle === 'ice')) playSound('ice', next.damage.some((d) => d.broken) ? 1.15 : 1);
       if (next.damage.some((d) => d.obstacle === 'block')) playSound('crack');
+      if (next.damage.some((d) => d.obstacle === 'fog')) playSound('flip');
+      if (next.damage.some((d) => d.obstacle === 'chain')) playSound('chain');
     }
     if (next.rush) {
       if (next.rush.index === 0) float({ kind: 'rushStart', value: next.rush.total });

@@ -231,6 +231,9 @@ export function Board({ board, frame, config, tokens, hint, guide, enabled, face
         onPointerCancel={cancel}
         onContextMenu={(e) => e.preventDefault()}
       >
+        {cell.w > 0 && config.bonusCells?.map((p) => (
+          <div key={`gold-${p.row},${p.col}`} className="gold-square" style={{ width: cell.w, height: cell.h, transform: px(p, cell) }} />
+        ))}
         {cell.w > 0 && frame.tiles.map((t) => {
           const key = `${t.pos.row},${t.pos.col}`;
           return (
@@ -248,6 +251,9 @@ export function Board({ board, frame, config, tokens, hint, guide, enabled, face
             />
           );
         })}
+        {cell.w > 0 && config.bonusCells?.map((p) => (
+          <div key={`gold-badge-${p.row},${p.col}`} className="gold-square-badge" style={{ width: cell.w, height: cell.h, transform: px(p, cell) }}><b>×2</b></div>
+        ))}
         {cell.w > 0 && frame.ghosts.map((g) => (
           <GhostCard key={`${frame.id}-${g.card.id}`} ghost={g} cell={cell} duration={frame.duration} tier={tier} />
         ))}

@@ -117,6 +117,8 @@ export function playFrame(fx: FxCanvas, frame: Frame, place: Place): void {
     for (const d of frame.damage) {
       const c = at(d.pos);
       if (d.obstacle === 'ice') iceShards(fx, cell, c.x, c.y, d.broken);
+      else if (d.obstacle === 'fog') mistPuff(fx, cell, c.x, c.y);
+      else if (d.obstacle === 'chain') chainLinks(fx, cell, c.x, c.y);
       else splinters(fx, cell, c.x, c.y, d.broken);
     }
   } else if (frame.kind === 'shuffle') {
@@ -142,6 +144,24 @@ function iceShards(fx: FxCanvas, cell: number, x: number, y: number, broken: boo
   }
   burst(fx, x, y, { count: 10, speed: cell * 3, size: cell * 0.05, colors: [WHITE, '#9EE0FF'], lifeMs: 380, shape: 'spark' });
   fx.ring({ x, y, fromRadius: cell * 0.2, toRadius: cell * (broken ? 1.3 : 0.8), width: cell * 0.07, color: '#BDEBFF', lifeMs: 380 });
+}
+
+/** Fog lifting: soft grey puffs drift up and away, and a flash as the card turns over. */
+function mistPuff(fx: FxCanvas, cell: number, x: number, y: number): void {
+  for (let i = 0; i < 14; i++) {
+    fx.particle({ x: x + rnd(-cell * 0.35, cell * 0.35), y: y + rnd(-cell * 0.4, cell * 0.4), vx: rnd(-cell * 1.2, cell * 1.2), vy: -cell * rnd(0.6, 1.8), size: cell * rnd(0.2, 0.36), color: 'rgba(225, 232, 244, 0.55)', lifeMs: rnd(700, 1100), drag: 0.9 });
+  }
+  burst(fx, x, y, { count: 8, speed: cell * 2.5, size: cell * 0.05, colors: [WHITE], lifeMs: 360, shape: 'spark' });
+}
+
+/** A chain breaking: links fly off, metallic sparks. */
+function chainLinks(fx: FxCanvas, cell: number, x: number, y: number): void {
+  const colors = ['#C9CDD6', '#8A909C', WHITE];
+  for (let i = 0; i < 12; i++) {
+    const a = rnd(-Math.PI, 0), v = cell * rnd(2, 4.5);
+    fx.particle({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, size: cell * rnd(0.07, 0.12), color: colors[i % colors.length], lifeMs: rnd(600, 900), gravity: cell * 10, drag: 0.2, shape: 'confetti' });
+  }
+  burst(fx, x, y, { count: 14, speed: cell * 4, size: cell * 0.05, colors: [WHITE, GOLD], lifeMs: 420, shape: 'spark' });
 }
 
 /** A block taking a hit: splinters and chips; broken, it bursts. */
@@ -288,4 +308,23 @@ function goldRain(fx: FxCanvas, place: Place, delayMs: number): void {
       delayMs: delayMs + rnd(0, 700), shape: i % 3 ? 'dot' : 'spark',
     });
   }
+}
+
+/**
+ * The Poker Tour champion, over the whole screen: `wave` 0 is the big bang (rays, rings, chips and
+ * gold), later waves keep the fireworks and confetti going.
+ */
+export function playChampion(fx: FxCanvas, width: number, height: number, wave: number): void {
+  const cell = Math.min(width, height) / 7;
+  const place: Place = { at: () => ({ x: width / 2, y: height / 2 }), cell, width, height, boardTop: height * 0.15, boardLeft: 0, boardWidth: width, boardHeight: height * 0.55 };
+  const x = width / 2, y = height * 0.36;
+  if (wave === 0) {
+    [WHITE, GOLD, AMBER, PINK].forEach((color, i) => fx.ring({ x, y, fromRadius: cell * 0.4, toRadius: cell * (9 - i * 1.5), width: cell * 0.3, color, lifeMs: 900, delayMs: i * 110 }));
+    fx.rays({ x, y, count: 24, length: cell * 9, color: GOLD, lifeMs: 1600, turnsPerSecond: 0.35 });
+    burst(fx, x, y, { count: 90, speed: cell * 9, size: cell * 0.09, colors: [GOLD, WHITE, AMBER], lifeMs: 1200, gravity: cell * 3, shape: 'spark' });
+    chipRain(fx, place, 200, 40);
+    goldRain(fx, place, 300);
+  }
+  fireworks(fx, place, wave === 0 ? 400 : 0, 6);
+  confetti(fx, place, 0, wave === 0 ? 120 : 50);
 }

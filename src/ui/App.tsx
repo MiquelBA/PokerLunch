@@ -22,10 +22,11 @@ import { shareText } from './share';
 import { TOURS } from '../engine/tour/levels';
 import { allLevels, currentLevelId, isUnlocked, newlyOpened, recordResult, starsMissing, totalStars, type TourProgress } from '../engine/tour/progress';
 import { playRun, startRun, tickRun, type TourRun } from '../engine/tour/run';
-import type { Level } from '../engine/tour/schema';
+import type { Level, Tour } from '../engine/tour/schema';
 import { loadTourProgress, saveTourProgress } from './tour/progressStore';
 import { TOUR_STRINGS } from './tour/strings';
-import { GoalsBar, LevelIntro, levelNumber, TourMap, TourResult } from './tour/TourUI';
+import { Champion } from './tour/Champion';
+import { GoalsBar, isChampion, LevelIntro, levelNumber, TourMap, TourResult } from './tour/TourUI';
 import type { GameDriver } from './useGame';
 
 type Mode = 'free' | 'daily' | 'practice' | 'tour';
@@ -56,7 +57,11 @@ export function App() {
   const [tourRun, setTourRun] = useState<TourRun | null>(null);
   const tourRunRef = useRef<TourRun | null>(null);
   const [tourProgress, setTourProgress] = useState(loadTourProgress);
-  const [tourNewTour, setTourNewTour] = useState<string | null>(null);
+  const [tourNewTour, setTourNewTour] = useState<Tour | null>(null);
+  // The plane flies to a city that has just opened; the champion's show after the last level.
+  const [tourCelebrate, setTourCelebrate] = useState<string | null>(null);
+  const [justChampion, setJustChampion] = useState(false);
+  const [champion, setChampion] = useState<'intro' | 'card' | null>(null);
   const pendingStart = useRef<Mode | null>(null);
 
   const onOver = useCallback((s: GameState) => {
@@ -69,11 +74,15 @@ export function App() {
         setTourProgress((p) => {
           const next = recordResult(p, run.level.id, run.stars, run.game.score);
           saveTourProgress(next);
-          setTourNewTour(newlyOpened(TOURS, p, next)[0]?.name ?? null);
+          setTourNewTour(newlyOpened(TOURS, p, next)[0] ?? null);
+          setJustChampion(!isChampion(TOURS, p) && isChampion(TOURS, next));
           return next;
         });
         window.setTimeout(() => playSound('newBest'), 500);
-      } else setTourNewTour(null);
+      } else {
+        setTourNewTour(null);
+        setJustChampion(false);
+      }
       return;
     }
     setBest((b) => {
@@ -174,6 +183,7 @@ export function App() {
 
   const openTour = () => setTourView('map');
   const pickLevel = (level: Level) => {
+    setTourCelebrate(null);
     setTourLevel(level);
     setTourView('intro');
   };
@@ -193,6 +203,13 @@ export function App() {
   const nextLocked = following && !nextOpen && followingTour && starsMissing(followingTour, tourProgress) > 0
     ? { tour: followingTour.name, missing: starsMissing(followingTour, tourProgress) }
     : null;
+
+  // The last level of the Tour: after the stars land, the champion's show starts by itself.
+  useEffect(() => {
+    if (!justChampion || phase !== 'over' || champion) return;
+    const t = window.setTimeout(() => setChampion('intro'), 3200);
+    return () => clearTimeout(t);
+  }, [justChampion, phase, champion]);
 
   const closeHelp = (dontShowAgain: boolean) => {
     // Shown before a game: it comes back next time unless the player ticked "don't show again".
@@ -341,15 +358,32 @@ export function App() {
           number={levelNumber(TOURS, tourRun.level.id)}
           nextLevel={nextOpen}
           needStars={nextLocked}
-          newTour={tourNewTour}
-          onNext={() => { if (nextOpen) { game.quit(); pickLevel(nextOpen); } }}
+          newTour={tourNewTour?.name ?? null}
+          champion={justChampion}
+          onChampion={() => setChampion('intro')}
+          onNext={() => {
+            if (!nextOpen) return;
+            game.quit();
+            // A new city: first the map, with the plane flying there.
+            if (tourNewTour) {
+              setTourCelebrate(tourNewTour.id);
+              setTourView('map');
+            } else pickLevel(nextOpen);
+          }}
           onRetry={() => tourLevel && playLevel(tourLevel)}
           onMap={backToMap}
         />
       )}
 
       {tourView === 'map' && phase === 'menu' && (
-        <TourMap tours={TOURS} progress={tourProgress} onPick={pickLevel} onClose={() => setTourView(null)} />
+        <TourMap
+          tours={TOURS}
+          progress={tourProgress}
+          celebrate={tourCelebrate}
+          onPick={pickLevel}
+          onClose={() => { setTourCelebrate(null); setTourView(null); }}
+          onChampion={() => setChampion('card')}
+        />
       )}
       {tourView === 'intro' && tourLevel && (
         <LevelIntro
@@ -358,6 +392,23 @@ export function App() {
           best={tourProgress.levels[tourLevel.id]?.best ?? null}
           onPlay={() => playLevel(tourLevel)}
           onClose={() => setTourView('map')}
+        />
+      )}
+
+      {champion && (
+        <Champion
+          stars={totalStars(tourProgress)}
+          maxStars={allLevels(TOURS).length * 3}
+          levels={allLevels(TOURS).length}
+          cities={TOURS.map((t) => t.name)}
+          intro={champion === 'intro'}
+          onShared={() => track('share', totalStars(tourProgress), { mode: 'tour', kind: 'champion' })}
+          onClose={() => {
+            setChampion(null);
+            setJustChampion(false);
+            if (phase === 'over') game.quit();
+            setTourView('map');
+          }}
         />
       )}
 

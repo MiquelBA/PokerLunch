@@ -1,17 +1,19 @@
 // Poker Tour screens: the map of tours and levels, a level's card before playing, the goals bar in
 // the game and the result at the end.
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { allLevels, currentLevelId, isUnlocked, starsMissing, totalStars, type TourProgress } from '../../engine/tour/progress';
 import { progress as goalsOf, type TourRun } from '../../engine/tour/run';
 import type { Level, Tour } from '../../engine/tour/schema';
+import type { CardSpec } from '../../engine/types';
 import { playSound } from '../audio';
 import { CardFace } from '../CardFace';
 import { vibrate } from '../haptics';
+import { Skyline, Trophy } from './skylines';
 import { goalIcon, goalLabel, goalShort, TOUR_STRINGS as T } from './strings';
 
 const fmt = (v: number) => v.toLocaleString('ca');
 
-/** The level's number across all tours (1-30). */
+/** The level's number across all tours (1-60). */
 export function levelNumber(tours: readonly Tour[], id: string): number {
   return allLevels(tours).findIndex((x) => x.level.id === id) + 1;
 }
@@ -24,11 +26,37 @@ function Stars({ count, of = 3, big = false }: { count: number; of?: number; big
   );
 }
 
-export function TourMap({ tours, progress, onPick, onClose }: {
-  tours: readonly Tour[]; progress: TourProgress; onPick: (level: Level) => void; onClose: () => void;
+/** Where each level sits on a city's winding path: x in % of the width, y in px. */
+const STEP = 64;
+function nodeAt(i: number, city: number): { x: number; y: number } {
+  return { x: 50 + 33 * Math.sin(i * 1.05 + city * 1.7), y: 40 + i * STEP };
+}
+
+/** A smooth line through the points (Catmull-Rom as cubic Béziers). */
+function smoothPath(pts: readonly { x: number; y: number }[]): string {
+  let d = `M${pts[0].x} ${pts[0].y}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] ?? pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] ?? p2;
+    d += ` C${p1.x + (p2.x - p0.x) / 6} ${p1.y + (p2.y - p0.y) / 6} ${p2.x - (p3.x - p1.x) / 6} ${p2.y - (p3.y - p1.y) / 6} ${p2.x} ${p2.y}`;
+  }
+  return d;
+}
+
+export function TourMap({ tours, progress, celebrate, onPick, onClose, onChampion }: {
+  tours: readonly Tour[]; progress: TourProgress;
+  /** A tour that has just opened: the plane flies to it. */
+  celebrate: string | null;
+  onPick: (level: Level) => void; onClose: () => void; onChampion: () => void;
 }) {
   const current = currentLevelId(tours, progress);
   const max = allLevels(tours).length * 3;
+  const champion = isChampion(tours, progress);
+  const focus = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    // Open where the player is: the new city's route, or the next level.
+    focus.current?.scrollIntoView({ block: 'center', behavior: celebrate ? 'smooth' : 'auto' });
+    if (celebrate) window.setTimeout(() => playSound('plane'), 500);
+  }, [celebrate]);
   return (
     <div className="overlay tour-map">
       <div className="tour-map-inner">
@@ -37,57 +65,113 @@ export function TourMap({ tours, progress, onPick, onClose }: {
           <h2>{T.title}</h2>
           <span className="tour-total">{T.stars(totalStars(progress), max)}</span>
         </header>
-        {tours.map((tour) => {
+        {tours.map((tour, ti) => {
           const stars = tour.levels.reduce((n, l) => n + (progress.levels[l.id]?.stars ?? 0), 0);
+          const open = isUnlocked(tours, progress, tour.levels[0].id);
+          const nodes = tour.levels.map((_, i) => nodeAt(i, ti));
+          const height = nodes[nodes.length - 1].y + 46;
+          const flying = celebrate === tour.id;
           return (
-            <section key={tour.id} className={`tour-section theme-${tour.theme}`}>
-              <div className="tour-section-head">
-                <h3>{tour.name}</h3>
-                <span>{T.stars(stars, tour.levels.length * 3)}</span>
-              </div>
-              {starsMissing(tour, progress) > 0 && <p className="tour-gate">🔒 {T.tourLocked(tour.starsToOpen ?? 0, totalStars(progress))}</p>}
-              <div className="tour-levels">
-                {tour.levels.map((level) => {
-                  const open = isUnlocked(tours, progress, level.id);
-                  const rec = progress.levels[level.id];
-                  const n = levelNumber(tours, level.id);
-                  return (
-                    <button
-                      key={level.id}
-                      type="button"
-                      className={`tour-level ${open ? '' : 'locked'} ${level.special ? 'special' : ''} ${level.id === current ? 'current' : ''} ${rec ? 'passed' : ''}`}
-                      disabled={!open}
-                      onClick={() => onPick(level)}
-                      aria-label={`${T.level(n)}: ${level.name}${open ? '' : `. ${T.locked}`}`}
-                    >
-                      <span className="tour-level-n">{open ? n : '🔒'}</span>
-                      <Stars count={rec?.stars ?? 0} />
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
+            <Fragment key={tour.id}>
+              {ti > 0 && (
+                <div className={`flight ${ti % 2 ? '' : 'mirror'} ${open ? 'open' : ''} ${flying ? 'flying' : ''}`} ref={flying ? (el) => { focus.current = el; } : undefined}>
+                  <svg viewBox="0 0 300 70" aria-hidden="true"><path d={FLIGHT} /></svg>
+                  {open ? <span className="plane"><Plane /></span> : <span className="flight-lock">🔒</span>}
+                  {flying && <span className="flight-label">✈ {T.newCity(tour.name)}</span>}
+                </div>
+              )}
+              <section className={`city theme-${tour.theme} ${open ? '' : 'closed'}`}>
+                <div className="city-banner">
+                  <Skyline theme={tour.theme} />
+                  <div className="city-title">
+                    <small>{T.city(ti + 1)}</small>
+                    <h3>{tour.name}</h3>
+                  </div>
+                  <span className="city-stars">{T.stars(stars, tour.levels.length * 3)}</span>
+                </div>
+                {starsMissing(tour, progress) > 0 && <p className="tour-gate">🔒 {T.tourLocked(tour.starsToOpen ?? 0, totalStars(progress))}</p>}
+                <div className="city-path" style={{ height }}>
+                  <svg viewBox={`0 0 100 ${height}`} preserveAspectRatio="none" aria-hidden="true">
+                    <path className="route" d={smoothPath(nodes)} vectorEffect="non-scaling-stroke" />
+                  </svg>
+                  {tour.levels.map((level, i) => {
+                    const unlocked = isUnlocked(tours, progress, level.id);
+                    const rec = progress.levels[level.id];
+                    const n = levelNumber(tours, level.id);
+                    const here = level.id === current;
+                    return (
+                      <button
+                        key={level.id}
+                        ref={here && !celebrate ? (el) => { focus.current = el; } : undefined}
+                        type="button"
+                        className={`tour-level ${unlocked ? '' : 'locked'} ${level.special ? 'special' : ''} ${here ? 'current' : ''} ${rec ? 'passed' : ''}`}
+                        style={{ left: `${nodes[i].x}%`, top: nodes[i].y }}
+                        disabled={!unlocked}
+                        onClick={() => onPick(level)}
+                        aria-label={`${T.level(n)}: ${level.name}${unlocked ? '' : `. ${T.locked}`}`}
+                      >
+                        <span className="tour-level-n">{unlocked ? n : '🔒'}</span>
+                        {rec && <Stars count={rec.stars} />}
+                        {here && <span className="chip-marker" aria-hidden="true"><i /></span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            </Fragment>
           );
         })}
+        <button className={`tour-finale ${champion ? 'won' : ''}`} type="button" disabled={!champion} onClick={onChampion}>
+          <Trophy />
+          <span>{champion ? T.championSee : T.championGoal}</span>
+        </button>
       </div>
     </div>
   );
 }
 
+/** The flight between two cities (the CSS flies the plane along the same curve). */
+const FLIGHT = 'M30 6 C 120 76, 180 -6, 270 62';
+
+function Plane() {
+  return (
+    <svg viewBox="0 0 40 40" aria-hidden="true">
+      <path d="M38 20 Q38 18 35 18 L24 18 L16 5 L12 5 L17 18 L8 18 L4 12 L1 12 L3 20 L1 28 L4 28 L8 22 L17 22 L12 35 L16 35 L24 22 L35 22 Q38 22 38 20Z" />
+    </svg>
+  );
+}
+
+/** Every level of every tour passed: the player is the Poker Tour champion. */
+export function isChampion(tours: readonly Tour[], progress: TourProgress): boolean {
+  return allLevels(tours).every((x) => progress.levels[x.level.id]);
+}
+
 /** What's on the board, explained once on the level's card. */
-function elementsOf(level: Level): ('ice' | 'block' | 'bomb')[] {
+type Element = 'ice' | 'block' | 'bomb' | 'fog' | 'chain' | 'gold';
+function elementsOf(level: Level): Element[] {
   const text = (level.board.layout ?? []).join('');
-  const out: ('ice' | 'block' | 'bomb')[] = [];
+  const out: Element[] = [];
   if (/[IK]/.test(text)) out.push('ice');
   if (/[BX]/.test(text)) out.push('block');
   if (text.includes('*') || level.deck?.bombChance) out.push('bomb');
+  if (text.includes('F')) out.push('fog');
+  if (/[1-9]/.test(text)) out.push('chain');
+  if (level.board.gold?.length) out.push('gold');
   return out;
 }
+
+const SAMPLES: Record<Element, CardSpec> = {
+  ice: { rank: 14, suit: 0, ice: 1 },
+  block: { rank: 0, suit: 0, block: 1 },
+  bomb: { rank: 7, suit: 1, bomb: true },
+  fog: { rank: 9, suit: 2, fog: true },
+  chain: { rank: 12, suit: 3, chain: 1 },
+  gold: { rank: 10, suit: 1 },
+};
 
 export function LevelIntro({ level, number, best, onPlay, onClose }: {
   level: Level; number: number; best: number | null; onPlay: () => void; onClose: () => void;
 }) {
-  const sample = useMemo(() => ({ ice: { rank: 14, suit: 0 as const, ice: 1 }, block: { rank: 0, suit: 0 as const, block: 1 }, bomb: { rank: 7, suit: 1 as const, bomb: true } }), []);
   return (
     <div className="overlay dim" onClick={onClose}>
       <div className={`sheet level-intro ${level.special ? 'special' : ''}`} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
@@ -101,7 +185,7 @@ export function LevelIntro({ level, number, best, onPlay, onClose }: {
         <p className="level-limit">{level.limit.kind === 'moves' ? `⏱ ${T.moves(level.limit.moves)}` : `⏱ ${T.time(level.limit.ms / 1000)}`}</p>
         {elementsOf(level).map((k) => (
           <div key={k} className="level-element">
-            <div className="mini"><CardFace card={sample[k]} /></div>
+            <div className={`mini ${k === 'gold' ? 'gold-sample' : ''}`}><CardFace card={SAMPLES[k]} /></div>
             <span>{T.rules[k]}</span>
           </div>
         ))}
@@ -130,9 +214,11 @@ export function GoalsBar({ run }: { run: TourRun }) {
   );
 }
 
-export function TourResult({ run, number, nextLevel, needStars, newTour, onNext, onRetry, onMap }: {
+export function TourResult({ run, number, nextLevel, needStars, newTour, champion, onChampion, onNext, onRetry, onMap }: {
   run: TourRun; number: number; nextLevel: Level | null; needStars: { tour: string; missing: number } | null; newTour: string | null;
-  onNext: () => void; onRetry: () => void; onMap: () => void;
+  /** This win made the player the Tour's champion. */
+  champion: boolean;
+  onChampion: () => void; onNext: () => void; onRetry: () => void; onMap: () => void;
 }) {
   const won = run.status === 'won';
   const [shown, setShown] = useState(0);
@@ -179,9 +265,10 @@ export function TourResult({ run, number, nextLevel, needStars, newTour, onNext,
           ))}
         </ul>
         {won && newTour && <p className="new-tour">🎉 {T.unlockedTour(newTour)}</p>}
+        {won && champion && <button className="btn primary big champion-btn" type="button" onClick={onChampion} autoFocus>🏆 {T.championClaim}</button>}
         {won && nextLevel && <button className="btn primary big" type="button" onClick={onNext} autoFocus>{T.next}</button>}
         {won && !nextLevel && needStars && <p className="new-tour">⭐ {T.needStars(needStars.tour, needStars.missing)}</p>}
-        {won && !nextLevel && !needStars && <p className="new-tour">🏆 {T.tourDone}</p>}
+        {won && !nextLevel && !needStars && !champion && <p className="new-tour">🏆 {T.tourDone}</p>}
         <button className={`btn ${won ? 'small' : 'primary big'}`} type="button" onClick={onRetry}>{won ? T.replay : T.retry}</button>
         <button className="btn small ghost" type="button" onClick={onMap}>{T.map}</button>
       </div>

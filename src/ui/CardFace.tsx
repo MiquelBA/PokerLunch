@@ -25,8 +25,17 @@ export const CardFace = memo(function CardFace({ card, className = '' }: { card:
       </div>
     );
   }
+  // Fog: the card lies face down under a drifting mist.
+  if (card.fog) {
+    return (
+      <div className={`fog-cell ${className}`} role="img" aria-label="Carta amb boira">
+        <CardBack />
+        <span className="mist" aria-hidden="true"><i /><i /></span>
+      </div>
+    );
+  }
   const id = card.joker ? 'pl-joker' : `pl-${card.suit}-${card.rank}`;
-  const label = `${card.joker ? 'Joker' : `${rankLabel(card.rank)}${SUIT_SYMBOLS[card.suit]}`}${card.ice ? ' (glaçada)' : ''}${card.bomb ? ' (bomba)' : ''}`;
+  const label = `${card.joker ? 'Joker' : `${rankLabel(card.rank)}${SUIT_SYMBOLS[card.suit]}`}${card.ice ? ' (glaçada)' : ''}${card.bomb ? ' (bomba)' : ''}${card.chain ? ' (encadenada)' : ''}`;
   return (
     <div className={`card ${card.golden ? 'golden' : ''} ${card.joker ? 'joker' : ''} ${className}`} role="img" aria-label={label}>
       <svg>
@@ -34,9 +43,30 @@ export const CardFace = memo(function CardFace({ card, className = '' }: { card:
       </svg>
       {card.bomb && <span className="bomb-badge" aria-hidden="true"><BombIcon /></span>}
       {card.ice ? <span className={`ice ice-${card.ice}`} aria-hidden="true" /> : null}
+      {card.chain ? <ChainOverlay link={card.chain} /> : null}
     </div>
   );
 });
+
+/** Two crossed chains and a padlock; each chain has its own colour so linked cards can be told apart. */
+function ChainOverlay({ link }: { link: number }) {
+  const links = (y0: number, flip: boolean) => Array.from({ length: 5 }, (_, i) => {
+    const x = 6 + i * 19, y = flip ? 112 - y0 - i * 19 * 1.15 : y0 + i * 19 * 1.15;
+    return <rect key={i} x={x} y={y} width="18" height="11" rx="5.5" transform={`rotate(${flip ? -48 : 48} ${x + 9} ${y + 5.5})`} />;
+  });
+  return (
+    <span className={`chain chain-${((link - 1) % 6) + 1}`} aria-hidden="true">
+      <svg viewBox="0 0 100 140" preserveAspectRatio="none">
+        <g className="links">{links(8, false)}{links(8, true)}</g>
+        <g className="lock">
+          <path d="M40 66v-7a10 10 0 0 1 20 0v7" fill="none" strokeWidth="5" />
+          <rect x="34" y="64" width="32" height="26" rx="5" />
+          <circle cx="50" cy="75" r="3.5" className="hole" />
+        </g>
+      </svg>
+    </span>
+  );
+}
 
 function BombIcon() {
   return (

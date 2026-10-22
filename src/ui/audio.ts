@@ -8,7 +8,7 @@
 export type SoundName =
   | 'chips' | 'blast' | 'golden' | 'combo' | 'timeBonus' | 'invalid' | 'shuffle' | 'warning'
   | 'gameOver' | 'newBest' | 'count' | 'go' | 'land' | 'power' | 'deal' | 'flip'
-  | 'ice' | 'crack' | 'star' | 'levelWon';
+  | 'ice' | 'crack' | 'chain' | 'star' | 'levelWon' | 'plane' | 'drumroll' | 'champion';
 
 /** One voice: an oscillator, or filtered noise ('noise') whose filter frequency glides from → to. */
 export interface Note {
@@ -90,9 +90,28 @@ const RECIPES: Readonly<Record<SoundName, readonly Note[]>> = {
   ],
   // A block taking a hit: a dull knock and chips.
   crack: [{ wave: 'sine', from: 180, to: 70, ms: 120, gain: 0.18 }, ...chips(3, 40, 0.07)],
+  // A chain snapping: a metallic clank and rattling links.
+  chain: [
+    { wave: 'square', from: 1400, to: 900, ms: 60, gain: 0.04 },
+    { wave: 'noise', from: 6000, to: 3000, ms: 70, gain: 0.07, filter: 'bandpass', q: 6 },
+    ...chips(4, 35, 0.05),
+  ],
   // A star landing on the result.
   star: [{ wave: 'triangle', from: E6, ms: 160, gain: 0.08 }, { wave: 'sine', from: C7, ms: 260, delayMs: 50, gain: 0.05 }, ...chips(2, 30, 0.05)],
   levelWon: [...stab([C5, E5, G5], 0, 260, 0.04, 'square'), ...arp([C5, E5, G5, C6, E6], 80, 0.08, 120), boom(110, 0.3, 120, 500), cymbal(120, 700, 0.08)],
+  // A plane flying to the next city: a long whoosh that rises and falls.
+  plane: [
+    { wave: 'noise', from: 500, to: 2600, ms: 1300, gain: 0.07, filter: 'bandpass', q: 1.5, attackMs: 500 },
+    { wave: 'sawtooth', from: 110, to: 150, ms: 1300, gain: 0.015, attackMs: 500 },
+  ],
+  // The build-up before the champion: a snare roll getting louder.
+  drumroll: Array.from({ length: 28 }, (_, i): Note => ({ wave: 'noise', from: 3000, to: 1500, ms: 40, delayMs: i * 62, gain: 0.03 + i * 0.003, filter: 'bandpass', q: 1.2 })),
+  // The champion: brass stabs, a rising fanfare, big drums and cymbals.
+  champion: [
+    ...stab([C5, E5, G5], 0, 220, 0.05, 'square'), ...stab([C5, E5, G5], 260, 220, 0.05, 'square'), ...stab([F5, A5, C6], 520, 260, 0.05, 'square'),
+    ...stab([G5, B5, D5 * 2], 820, 900, 0.05, 'sawtooth'), ...arp([C6, E6, G6, C7], 90, 0.07, 820),
+    boom(90, 0.35, 0, 600), boom(90, 0.35, 520, 600), boom(70, 0.4, 820, 900), cymbal(820, 1600, 0.1), ...chips(14, 900),
+  ],
   newBest: [...arp([C5, E5, G5, C6, E6, G6], 70, 0.09), boom(110, 0.3, 0, 500), ...chips(10, 300)],
 };
 

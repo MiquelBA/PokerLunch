@@ -1,6 +1,7 @@
 // Turns a move's events into animation frames. Each frame is a board to show plus the cards that
 // are leaving it; the board draws a frame by moving every card from where it was to where it is now.
 import { applyGravity, isAnchored, mutableCopy } from '../engine/board';
+import type { Obstacle } from '../engine/tour/schema';
 import type { BlastKind, Board, Card, Cell, GameEvent, HandType, Pos } from '../engine/types';
 import { HAND_TIER, UI } from './uiConfig';
 
@@ -40,13 +41,17 @@ export interface Frame {
   readonly duration: number;
   readonly hand?: HandInfo;
   readonly blast?: { readonly kind: BlastKind; readonly origin: Pos; readonly count: number; readonly points: number };
-  /** Poker Tour: ice and blocks hit by the move (`broken`: the ice is gone or the block is). */
-  readonly damage?: readonly { readonly pos: Pos; readonly obstacle: 'ice' | 'block'; readonly broken: boolean }[];
+  /** Poker Tour: obstacles hit by the move (`broken`: the ice is gone or the block is; fog and chains always go). */
+  readonly damage?: readonly { readonly pos: Pos; readonly obstacle: Obstacle; readonly broken: boolean }[];
   /** Poker Tour: the first frame of a Rush bomb (its points, which bomb, out of how many). */
   readonly rush?: { readonly points: number; readonly index: number; readonly total: number; readonly pos: Pos };
 }
 
 let nextFrameId = 1;
+
+function obstacleOf(c: Card): Obstacle {
+  return c.block ? 'block' : c.ice ? 'ice' : c.fog ? 'fog' : 'chain';
+}
 
 export function tilesOf(board: Board): Tile[] {
   const tiles: Tile[] = [];
@@ -134,8 +139,8 @@ export function moveFrames(before: Board, events: readonly GameEvent[], after: B
         duration: UI.anim.crack,
         damage: e.cells.map((c) => ({
           pos: c.pos,
-          obstacle: c.before.block ? 'block' : 'ice',
-          broken: c.before.block ? !c.after : !c.after?.ice,
+          obstacle: obstacleOf(c.before),
+          broken: c.before.block ? !c.after : c.before.ice ? !c.after?.ice : true,
         })),
       });
     } else if (e.type === 'fall') {
