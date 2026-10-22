@@ -63,6 +63,8 @@ export function App() {
   const [justChampion, setJustChampion] = useState(false);
   const [champion, setChampion] = useState<'intro' | 'card' | null>(null);
   const pendingStart = useRef<Mode | null>(null);
+  // Leaving a game before the end asks first: the score of a game left halfway is lost.
+  const [quitAsk, setQuitAsk] = useState(false);
 
   const onOver = useCallback((s: GameState) => {
     if (modeRef.current === 'tour') {
@@ -211,6 +213,10 @@ export function App() {
     return () => clearTimeout(t);
   }, [justChampion, phase, champion]);
 
+  useEffect(() => {
+    if (phase !== 'playing') setQuitAsk(false);
+  }, [phase]);
+
   const closeHelp = (dontShowAgain: boolean) => {
     // Shown before a game: it comes back next time unless the player ticked "don't show again".
     if (pendingStart.current) saveFlag(UI.helpSeenKey, dontShowAgain);
@@ -320,14 +326,25 @@ export function App() {
         </div>
       )}
 
-      {phase === 'playing' && paused && (
+      {phase === 'playing' && paused && !quitAsk && (
         <div className="overlay dim">
           <div className="sheet">
             <h2>{STRINGS.paused}</h2>
             <button className="btn primary" type="button" onClick={() => game.setPaused(false)}>{STRINGS.resume}</button>
             <button className="btn" type="button" onClick={toggleSound}>{sound ? STRINGS.soundOn : STRINGS.soundOff}</button>
             <button className="btn" type="button" onClick={() => setSheet('help')}>{STRINGS.howTo}</button>
-            <button className="btn ghost" type="button" onClick={mode === 'tour' ? backToMap : game.quit}>{mode === 'tour' ? TOUR_STRINGS.map : STRINGS.quit}</button>
+            <button className="btn ghost" type="button" onClick={() => setQuitAsk(true)}>{mode === 'tour' ? TOUR_STRINGS.map : STRINGS.quit}</button>
+          </div>
+        </div>
+      )}
+
+      {phase === 'playing' && paused && quitAsk && (
+        <div className="overlay dim">
+          <div className="sheet" role="alertdialog" aria-labelledby="quit-ask-title">
+            <h2 id="quit-ask-title">{STRINGS.quitAsk.title}</h2>
+            <p>{mode === 'tour' ? STRINGS.quitAsk.tour : mode === 'daily' ? STRINGS.quitAsk.daily : STRINGS.quitAsk.body}</p>
+            <button className="btn primary" type="button" onClick={() => { setQuitAsk(false); game.setPaused(false); }}>{STRINGS.quitAsk.no}</button>
+            <button className="btn ghost" type="button" onClick={() => { setQuitAsk(false); if (mode === 'tour') backToMap(); else game.quit(); }}>{STRINGS.quitAsk.yes}</button>
           </div>
         </div>
       )}
