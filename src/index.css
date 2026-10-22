@@ -761,7 +761,7 @@ button:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
 .city.theme-macau { --sky1: #FF8A5C; --sky2: #7A0F2A; --sk: #2D0612; --fill: #A3202E; --ground: #3D0812; --sea: #FFC93C; }
 .city.theme-atlantic { --sky1: #FFD27A; --sky2: #E0607E; --sk: #3A1430; --fill: #2D7A9A; --ground: #0D2E45; --sea: #3FB6D9; }
 .city.theme-vegas { --sky1: #C04CFF; --sky2: #1A0638; --sk: #12031F; --fill: #5B1A8E; --ground: #1A0633; --sea: #FF3D8B; box-shadow: inset 0 0 0 2px rgba(255, 201, 60, 0.55), 0 0 24px rgba(192, 76, 255, 0.35); }
-.city.closed .city-path { filter: grayscale(0.7) brightness(0.75); }
+.city.closed .tour-levels { filter: grayscale(0.7) brightness(0.75); }
 .city-banner { position: relative; height: 128px; background: linear-gradient(180deg, var(--sky2) 0%, var(--sky1) 100%); }
 .city-banner::before { /* A few stars twinkling in the sky. */
   content: ''; position: absolute; inset: 0 0 40% 0; opacity: 0.8;
@@ -782,9 +782,7 @@ button:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
 .city-title h3 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 38px; line-height: 1; letter-spacing: 0.03em; color: #fff; }
 .city-stars { position: absolute; right: 12px; top: 12px; padding: 3px 10px; border-radius: 999px; background: rgba(0, 0, 0, 0.45); font-weight: 800; color: var(--gold); }
 .city .tour-gate { margin: 10px 14px 0; }
-.city-path { position: relative; margin: 0 6%; }
-.city-path > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.city-path .route { fill: none; stroke: rgba(255, 248, 231, 0.55); stroke-width: 5; stroke-dasharray: 2 11; stroke-linecap: round; }
+.city .tour-levels { padding: 12px 12px 14px; }
 /* The flight between cities: a dotted route; the plane flies along it when a city opens. */
 .flight { position: relative; width: 300px; height: 70px; margin: -4px auto; }
 .flight.mirror { transform: scaleX(-1); }
@@ -816,30 +814,28 @@ button:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
 .tour-finale.won { cursor: pointer; color: var(--gold); background: radial-gradient(circle, rgba(255, 201, 60, 0.25), rgba(0, 0, 0, 0.3)); box-shadow: inset 0 0 0 2px var(--gold); }
 .tour-finale.won .trophy { filter: drop-shadow(0 0 12px rgba(255, 201, 60, 0.8)); animation: trophy-bob 2s ease-in-out infinite; }
 @keyframes trophy-bob { 50% { translate: 0 -5px; } }
+.tour-levels { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
 .tour-level {
-  position: absolute; width: 54px; height: 54px; translate: -50% -50%; border: 0; border-radius: 50%; cursor: pointer; padding: 0;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font: inherit; color: #1B1B22;
-  /* A poker chip: white edge marks on a coloured rim, a cream centre. */
-  background: radial-gradient(circle, #FFF8E7 0 54%, transparent 55%), repeating-conic-gradient(#FFF8E7 0 12deg, #D0182C 12deg 45deg);
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35), 0 4px 0 rgba(0, 0, 0, 0.4);
+  position: relative; aspect-ratio: 1; border: 0; border-radius: 14px; cursor: pointer; padding: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  background: #FFF8E7; color: #1B1B22; box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35); font: inherit;
 }
 .tour-level:active { transform: scale(0.95); }
-.tour-level-n { font-family: var(--display); font-size: 24px; line-height: 1; }
-.tour-level .stars { font-size: 9px; }
-.tour-level.passed { background: radial-gradient(circle, #FFEFC2 0 54%, transparent 55%), repeating-conic-gradient(#FFF8E7 0 12deg, #13883F 12deg 45deg); }
-.tour-level.special { width: 66px; height: 66px; background: radial-gradient(circle, #FFE58A 0 54%, transparent 55%), repeating-conic-gradient(#FFF8E7 0 12deg, #16181D 12deg 45deg); box-shadow: 0 0 0 3px var(--gold), 0 0 16px rgba(255, 201, 60, 0.7), 0 4px 0 rgba(0, 0, 0, 0.4); }
-.tour-level.locked { background: radial-gradient(circle, #3A3F4A 0 54%, transparent 55%), repeating-conic-gradient(#5A606B 0 12deg, #2A2D33 12deg 45deg); color: rgba(255, 255, 255, 0.6); box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35); cursor: default; }
-.tour-level.locked .tour-level-n { font-size: 18px; }
-.tour-level.current { z-index: 1; box-shadow: 0 0 0 3px var(--cyan), 0 0 18px var(--cyan), 0 4px 0 rgba(0, 0, 0, 0.4); animation: current-pulse 1.4s ease-in-out infinite; }
+.tour-level-n { font-family: var(--display); font-size: 26px; line-height: 1; }
+.tour-level.passed { background: #FFEFC2; }
+.tour-level.special { background: linear-gradient(180deg, #FFE58A, #E0A21B); }
+.tour-level.locked { background: rgba(0, 0, 0, 0.35); color: rgba(255, 255, 255, 0.6); box-shadow: none; cursor: default; }
+.tour-level.locked .stars { visibility: hidden; }
+.tour-level.current { z-index: 1; box-shadow: 0 0 0 3px var(--cyan), 0 0 18px var(--cyan), 0 3px 0 rgba(0, 0, 0, 0.35); animation: current-pulse 1.4s ease-in-out infinite; }
 /* The player's marker: a gold chip bobbing over the next level, with a ring pulsing out. */
-.chip-marker { position: absolute; left: 50%; bottom: 100%; width: 34px; height: 34px; margin-left: -17px; animation: marker-bob 1s ease-in-out infinite; pointer-events: none; }
+.chip-marker { position: absolute; left: 50%; bottom: 78%; width: 30px; height: 30px; margin-left: -15px; animation: marker-bob 1s ease-in-out infinite; pointer-events: none; }
 .chip-marker::before {
   content: ''; position: absolute; inset: 0; border-radius: 50%;
   background: radial-gradient(circle, #FFE48A 0 40%, transparent 41%), repeating-conic-gradient(#FFF8E7 0 15deg, #E0A21B 15deg 45deg);
   box-shadow: 0 0 0 2px #7A4A00, 0 6px 8px rgba(0, 0, 0, 0.45);
 }
 .chip-marker::after { content: '♠'; position: absolute; inset: 0; display: grid; place-items: center; font-size: 15px; color: #7A4A00; }
-.chip-marker i { position: absolute; left: 50%; top: calc(100% + 24px); width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%; box-shadow: 0 0 0 3px var(--cyan); animation: marker-ring 1.4s ease-out infinite; }
+.chip-marker i { position: absolute; left: 50%; top: calc(100% + 18px); width: 64px; height: 64px; margin: -32px 0 0 -32px; border-radius: 16px; box-shadow: 0 0 0 3px var(--cyan); animation: marker-ring 1.4s ease-out infinite; }
 @keyframes marker-bob { 50% { translate: 0 -8px; } }
 @keyframes marker-ring { from { scale: 1; opacity: 0.9; } to { scale: 1.9; opacity: 0; } }
 @keyframes current-pulse { 50% { scale: 1.08; } }

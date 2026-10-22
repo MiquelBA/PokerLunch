@@ -26,22 +26,6 @@ function Stars({ count, of = 3, big = false }: { count: number; of?: number; big
   );
 }
 
-/** Where each level sits on a city's winding path: x in % of the width, y in px. */
-const STEP = 64;
-function nodeAt(i: number, city: number): { x: number; y: number } {
-  return { x: 50 + 33 * Math.sin(i * 1.05 + city * 1.7), y: 40 + i * STEP };
-}
-
-/** A smooth line through the points (Catmull-Rom as cubic Béziers). */
-function smoothPath(pts: readonly { x: number; y: number }[]): string {
-  let d = `M${pts[0].x} ${pts[0].y}`;
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[i - 1] ?? pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] ?? p2;
-    d += ` C${p1.x + (p2.x - p0.x) / 6} ${p1.y + (p2.y - p0.y) / 6} ${p2.x - (p3.x - p1.x) / 6} ${p2.y - (p3.y - p1.y) / 6} ${p2.x} ${p2.y}`;
-  }
-  return d;
-}
-
 export function TourMap({ tours, progress, celebrate, onPick, onClose, onChampion }: {
   tours: readonly Tour[]; progress: TourProgress;
   /** A tour that has just opened: the plane flies to it. */
@@ -68,8 +52,6 @@ export function TourMap({ tours, progress, celebrate, onPick, onClose, onChampio
         {tours.map((tour, ti) => {
           const stars = tour.levels.reduce((n, l) => n + (progress.levels[l.id]?.stars ?? 0), 0);
           const open = isUnlocked(tours, progress, tour.levels[0].id);
-          const nodes = tour.levels.map((_, i) => nodeAt(i, ti));
-          const height = nodes[nodes.length - 1].y + 46;
           const flying = celebrate === tour.id;
           return (
             <Fragment key={tour.id}>
@@ -90,11 +72,8 @@ export function TourMap({ tours, progress, celebrate, onPick, onClose, onChampio
                   <span className="city-stars">{T.stars(stars, tour.levels.length * 3)}</span>
                 </div>
                 {starsMissing(tour, progress) > 0 && <p className="tour-gate">🔒 {T.tourLocked(tour.starsToOpen ?? 0, totalStars(progress))}</p>}
-                <div className="city-path" style={{ height }}>
-                  <svg viewBox={`0 0 100 ${height}`} preserveAspectRatio="none" aria-hidden="true">
-                    <path className="route" d={smoothPath(nodes)} vectorEffect="non-scaling-stroke" />
-                  </svg>
-                  {tour.levels.map((level, i) => {
+                <div className="tour-levels">
+                  {tour.levels.map((level) => {
                     const unlocked = isUnlocked(tours, progress, level.id);
                     const rec = progress.levels[level.id];
                     const n = levelNumber(tours, level.id);
@@ -105,13 +84,12 @@ export function TourMap({ tours, progress, celebrate, onPick, onClose, onChampio
                         ref={here && !celebrate ? (el) => { focus.current = el; } : undefined}
                         type="button"
                         className={`tour-level ${unlocked ? '' : 'locked'} ${level.special ? 'special' : ''} ${here ? 'current' : ''} ${rec ? 'passed' : ''}`}
-                        style={{ left: `${nodes[i].x}%`, top: nodes[i].y }}
                         disabled={!unlocked}
                         onClick={() => onPick(level)}
                         aria-label={`${T.level(n)}: ${level.name}${unlocked ? '' : `. ${T.locked}`}`}
                       >
                         <span className="tour-level-n">{unlocked ? n : '🔒'}</span>
-                        {rec && <Stars count={rec.stars} />}
+                        <Stars count={rec?.stars ?? 0} />
                         {here && <span className="chip-marker" aria-hidden="true"><i /></span>}
                       </button>
                     );
