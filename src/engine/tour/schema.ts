@@ -8,22 +8,25 @@ import type { HandType } from '../types';
  *   I  a frozen card (one layer of ice)      K  a frozen card with two layers
  *   B  a block (breaks with one hit)         X  a stone block (two hits)
  *   *  a bomb card                           G  a golden card
- *   J  a joker
+ *   J  a joker                               F  a card in fog (face down)
+ *   1-9  a chained card: cards with the same digit are on one chain
  * `fixed` sets the card under any cell that holds one ('row,col' → 'AS', notation as in tests),
  * e.g. a frozen ace of spades: layout 'I' plus fixed { '2,2': 'AS' }.
+ * `gold` lists the golden squares ('row,col'): a hand through any of them scores ×2.
  */
 export interface LevelBoard {
   readonly rows: number;
   readonly cols: number;
   readonly layout?: readonly string[];
   readonly fixed?: Readonly<Record<string, string>>;
+  readonly gold?: readonly string[];
 }
 
 export type LevelLimit =
   | { readonly kind: 'moves'; readonly moves: number }
   | { readonly kind: 'time'; readonly ms: number };
 
-export type Obstacle = 'ice' | 'block';
+export type Obstacle = 'ice' | 'block' | 'fog' | 'chain';
 
 export type Goal =
   /** Reach a score. */
@@ -37,7 +40,9 @@ export type Goal =
   /** Set off `count` bombs. */
   | { readonly type: 'bombs'; readonly count: number }
   /** Use `count` golden cards in hands. */
-  | { readonly type: 'golden'; readonly count: number };
+  | { readonly type: 'golden'; readonly count: number }
+  /** Make `count` hands through golden squares. */
+  | { readonly type: 'squares'; readonly count: number };
 
 export interface Level {
   /** Unique and stable (progress is saved under it): 't1-07'. */
@@ -61,7 +66,7 @@ export interface Level {
   readonly intro?: string;
 }
 
-export type TourTheme = 'barcelona' | 'montecarlo' | 'vegas';
+export type TourTheme = 'barcelona' | 'montecarlo' | 'london' | 'macau' | 'atlantic' | 'vegas';
 
 export interface Tour {
   readonly id: string;
@@ -72,4 +77,4 @@ export interface Tour {
   readonly levels: readonly Level[];
 }
 
-export const LAYOUT_CHARS = '.IKBX*GJ';
+export const LAYOUT_CHARS = '.IKBX*GJF123456789';

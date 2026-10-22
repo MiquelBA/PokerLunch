@@ -1,4 +1,4 @@
-// Poker Tour board elements in the engine: ice, blocks and bombs.
+// Poker Tour board elements in the engine: ice, blocks, bombs, fog, chains and golden squares.
 import { describe, expect, it } from 'vitest';
 import { makeConfig } from '../config';
 import { applyMove, findHands, newGame, traceStatus } from '../game';
@@ -102,9 +102,85 @@ describe('bombs', () => {
   });
 });
 
+describe('fog', () => {
+  it('a card in fog cannot be traced; a hand next to it turns it over', () => {
+    const board = parseBoard(`
+      7S? 2C 3D
+      7H 4H 5C
+      7D 9S 8D`);
+    const s = newGame({ board, config: cfg, queue: parseCards('AS AH AD') });
+    expect(traceStatus(board, [P(0, 0), P(1, 0), P(2, 0)], cfg)).toBe('invalid');
+    expect(findHands(board, cfg)).toEqual([]);
+    const fogged = parseBoard(`
+      4S? 2C 3D
+      7S 7H 7D
+      9S 8D 5H`);
+    const r = applyMove(newGame({ board: fogged, config: cfg, queue: parseCards('AS AH AD') }), { path: [P(1, 0), P(1, 1), P(1, 2)] });
+    expect(r.events.find((e) => e.type === 'damage')).toMatchObject({ cells: [{ pos: P(0, 0), after: { rank: 4 } }] });
+    // Fog doesn't hold its cell: the card, now face up, falls like any other.
+    expect(formatBoard(r.state.board)).toBe('AS AH AD\n4S 2C 3D\n9S 8D 5H');
+    expect(s.board[0][0]?.fog).toBe(true);
+  });
+});
+
+describe('chains', () => {
+  it('a chained card plays only together with the rest of its chain', () => {
+    const board = parseBoard(`
+      7S=1 7H=1 2C
+      7D 4H 5C
+      7C 9S 8D`);
+    // 7S 7D 7C leaves 7H behind: not a hand. With 7H too it is.
+    expect(traceStatus(board, [P(0, 0), P(1, 0), P(2, 0)], cfg)).toBe('partial');
+    expect(traceStatus(board, [P(0, 1), P(0, 0), P(1, 0), P(2, 0)], cfg)).toBe('valid');
+    expect(findHands(board, cfg).every((h) => h.path.some((p) => p.row === 0 && p.col === 1))).toBe(true);
+    const s = newGame({ board, config: cfg, queue: parseCards('AS AH AD AC') });
+    expect(applyMove(s, { path: [P(0, 0), P(1, 0), P(2, 0)] }).events).toEqual([]);
+    expect(applyMove(s, { path: [P(0, 1), P(0, 0), P(1, 0), P(2, 0)] }).events.some((e) => e.type === 'hand')).toBe(true);
+  });
+
+  it('chained cards hold their cell; a hit on one breaks the whole chain', () => {
+    const board = parseBoard(`
+      AS=2 2C 3D=2
+      4H 8H 5C
+      7S 7H 7D`);
+    const s = newGame({ board, config: cfg, queue: parseCards('KS KH KD') });
+    const r = applyMove(s, { path: [P(2, 0), P(2, 1), P(2, 2)] });
+    // Nothing next to the chain: it holds, the cards below it fall around it.
+    expect(r.state.board[0][0]?.chain).toBe(2);
+    expect(formatBoard(r.state.board)).toBe('AS=2 KH 3D=2\nKS 2C KD\n4H 8H 5C');
+    // A hand next to AS=2 breaks both links (3D too, far from the hand).
+    const board2 = parseBoard(`
+      AS=2 2C 3D=2
+      7S 7H 7D
+      4H 8H 5C`);
+    const r2 = applyMove(newGame({ board: board2, config: cfg, queue: parseCards('KS KH KD') }), { path: [P(1, 0), P(1, 1), P(1, 2)] });
+    const damage = r2.events.find((e) => e.type === 'damage');
+    expect(damage && damage.type === 'damage' ? damage.cells.length : 0).toBe(2);
+    expect(r2.state.board.flat().some((c) => c?.chain)).toBe(false);
+  });
+});
+
+describe('golden squares', () => {
+  it('a hand through one scores double', () => {
+    const board = parseBoard(`
+      7S 7H 7D
+      2C 4H 5C
+      9S 8D 3D`);
+    const plain = applyMove(newGame({ board, config: cfg, queue: parseCards('AS AH AD') }), { path: [P(0, 0), P(0, 1), P(0, 2)] });
+    const gold = makeConfig({ ...cfg, bonusCells: [P(0, 1)] });
+    const r = applyMove(newGame({ board, config: gold, queue: parseCards('AS AH AD') }), { path: [P(0, 0), P(0, 1), P(0, 2)] });
+    expect(r.state.score).toBe(plain.state.score * 2);
+    expect(r.events.find((e) => e.type === 'hand')).toMatchObject({ cellMultiplier: 2 });
+    const off = makeConfig({ ...cfg, bonusCells: [P(2, 2)] });
+    const r2 = applyMove(newGame({ board, config: off, queue: parseCards('AS AH AD') }), { path: [P(0, 0), P(0, 1), P(0, 2)] });
+    expect(r2.state.score).toBe(plain.state.score);
+    expect(plain.events.find((e) => e.type === 'hand')).not.toHaveProperty('cellMultiplier');
+  });
+});
+
 describe('notation', () => {
-  it('reads and writes ice, bombs and blocks', () => {
-    const text = '7S~~ 7H! #\n## JK 9D*';
+  it('reads and writes ice, bombs, blocks, fog and chains', () => {
+    const text = '7S~~ 7H! #\n## JK 9D*\nAS? KD=3 2C';
     expect(formatBoard(parseBoard(text))).toBe(text);
   });
 });

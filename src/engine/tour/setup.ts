@@ -4,7 +4,7 @@ import { mutableCopy } from '../board';
 import { DEFAULT_CONFIG, makeConfig } from '../config';
 import { newGame } from '../game';
 import { parseCard } from '../notation';
-import { HAND_TYPES, type Card, type Cell, type GameConfig, type GameState, type HandDef, type HandType } from '../types';
+import { HAND_TYPES, type Card, type Cell, type GameConfig, type GameState, type HandDef, type HandType, type Pos } from '../types';
 import type { Level } from './schema';
 
 /** The Classic rules, changed only where the level says so. */
@@ -29,7 +29,14 @@ export function levelConfig(level: Level): GameConfig {
     mode: level.limit.kind,
     durationMs: level.limit.kind === 'time' ? level.limit.ms : DEFAULT_CONFIG.durationMs,
     maxMoves: level.limit.kind === 'moves' ? level.limit.moves : DEFAULT_CONFIG.maxMoves,
+    ...(level.board.gold ? { bonusCells: level.board.gold.map(parsePos) } : {}),
   });
+}
+
+/** 'row,col' → a position. */
+export function parsePos(key: string): Pos {
+  const [row, col] = key.split(',').map(Number);
+  return { row, col };
 }
 
 /** Turns a layout character into what the cell holds, given the card dealt there. */
@@ -42,7 +49,8 @@ function placed(ch: string, dealt: Card): Card {
     case '*': return { ...dealt, bomb: true, joker: undefined };
     case 'G': return dealt.joker ? dealt : { ...dealt, golden: true };
     case 'J': return { id: dealt.id, rank: 0, suit: 0, joker: true };
-    default: return dealt;
+    case 'F': return { ...dealt, fog: true };
+    default: return /[1-9]/.test(ch) ? { ...dealt, chain: Number(ch), bomb: undefined } : dealt;
   }
 }
 

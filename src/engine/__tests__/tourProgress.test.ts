@@ -33,6 +33,20 @@ describe('tour progress', () => {
     expect(newlyOpened(gated, better, better)).toEqual([]);
   });
 
+  it('a new tour put in before an old one keeps what was passed open', () => {
+    const old: Tour[] = [tours[0], { id: 't3', name: 'C', theme: 'vegas', starsToOpen: 3, levels: [lvl('c1'), lvl('c2'), lvl('c3')] }];
+    let p = recordResult(recordResult(recordResult(EMPTY_PROGRESS, 'a1', 1, 1), 'a2', 2, 1), 'c1', 1, 1);
+    p = recordResult(p, 'c2', 1, 1);
+    const grown: Tour[] = [tours[0], { id: 'new', name: 'N', theme: 'london', starsToOpen: 3, levels: [lvl('n1')] }, { ...old[1], starsToOpen: 9 }];
+    expect(isUnlocked(grown, p, 'c1')).toBe(true);
+    expect(isUnlocked(grown, p, 'c2')).toBe(true);
+    // Its gate doesn't apply any more (a level of it was passed): the next one stays playable.
+    expect(isUnlocked(grown, p, 'c3')).toBe(true);
+    // The new tour opens as usual and is where the player goes next.
+    expect(isUnlocked(grown, p, 'n1')).toBe(true);
+    expect(currentLevelId(grown, p)).toBe('n1');
+  });
+
   it('a lost try changes nothing; replays keep the best stars and best score', () => {
     let p = recordResult(EMPTY_PROGRESS, 'a1', 0, 999);
     expect(p).toEqual(EMPTY_PROGRESS);

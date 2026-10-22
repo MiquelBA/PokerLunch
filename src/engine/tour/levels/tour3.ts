@@ -1,12 +1,12 @@
-// Tour 3, Las Vegas: the big hands, crowded boards and the royal finale.
+// Tour 3, Las Vegas (played last): the big hands, crowded boards and the royal finale.
 import type { Tour } from '../schema';
 
 export const TOUR_3: Tour = {
   id: 'vegas',
   name: 'Las Vegas',
   theme: 'vegas',
-  // Both tours passed (20) plus a second star on about half the levels.
-  starsToOpen: 30,
+  // The final: five tours passed (50) plus a second star on half of them.
+  starsToOpen: 75,
   levels: [
     {
       id: 't3-01', name: 'Escala de color', seed: 301,

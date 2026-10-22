@@ -38,14 +38,30 @@ export function allPositions(board: Board): Pos[] {
   return out;
 }
 
-/** Ice and blocks hold their cell: they can't be traced and don't fall (Poker Tour). */
+/** Ice, blocks and chains hold their cell: they don't fall, and cards above stop on them (Poker Tour). */
 export function isAnchored(c: Cell): boolean {
-  return !!c && (!!c.block || !!c.ice);
+  return !!c && (!!c.block || !!c.ice || !!c.chain);
+}
+
+/** What a hit (a hand next to it, a blast, a bomb) wears down instead of sweeping away (Poker Tour). */
+export function isObstacle(c: Cell): boolean {
+  return !!c && (!!c.block || !!c.ice || !!c.fog || !!c.chain);
 }
 
 /** A card that can be part of a traced hand. */
 export function isPlayable(c: Cell): c is Card {
-  return !!c && !c.block && !c.ice;
+  return !!c && !c.block && !c.ice && !c.fog;
+}
+
+/** Chained cards go together: a path holding one holds every card of its chain (Poker Tour). */
+export function chainsComplete(board: Board, path: readonly Pos[]): boolean {
+  const links = new Set(path.map((p) => cellAt(board, p)?.chain).filter((x): x is number => !!x));
+  if (!links.size) return true;
+  for (const p of allPositions(board)) {
+    const link = cellAt(board, p)?.chain;
+    if (link && links.has(link) && !path.some((q) => samePos(p, q))) return false;
+  }
+  return true;
 }
 
 /** A path is a chain of distinct, neighbouring cells holding playable cards. */

@@ -1,6 +1,6 @@
 // Playing a level: moves and the clock go to the Classic engine; the run adds the goals, the win or
 // loss, the Poker Rush and the stars. Pure and deterministic, like the engine.
-import { allPositions, cellAt } from '../board';
+import { allPositions, cellAt, isObstacle } from '../board';
 import { applyMove, detonate, tick } from '../game';
 import { nextInt } from '../rng';
 import type { Board, GameEvent, GameState, Move, Pos } from '../types';
@@ -103,7 +103,7 @@ export function pokerRush(game: GameState, bombs: number): { game: GameState; st
   for (let i = 0; i < bombs; i++) {
     const cards = allPositions(state.board).filter((p) => {
       const c = cellAt(state.board, p);
-      return c && !c.block && !c.ice;
+      return c && !isObstacle(c);
     });
     if (!cards.length) break;
     const [k, rng] = nextInt(state.rngState, cards.length);

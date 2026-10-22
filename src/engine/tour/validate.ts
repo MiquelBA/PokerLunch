@@ -11,7 +11,7 @@ import { levelConfig, newLevelGame } from './setup';
 export function validateLevel(level: Level): string[] {
   const out: string[] = [];
   const at = (msg: string) => out.push(`${level.id}: ${msg}`);
-  const { rows, cols, layout, fixed } = level.board;
+  const { rows, cols, layout, fixed, gold } = level.board;
   if (rows < 3 || rows > 7 || cols < 3 || cols > 7) at(`board ${rows}×${cols} out of range (3-7)`);
   if (layout) {
     if (layout.length !== rows) at(`layout has ${layout.length} rows, board ${rows}`);
@@ -27,6 +27,13 @@ export function validateLevel(level: Level): string[] {
     const ch = layout?.[r]?.[c];
     if (ch === 'B' || ch === 'X') at(`fixed ${key} is on a block`);
   }
+  for (const key of gold ?? []) {
+    const [r, c] = key.split(',').map(Number);
+    if (!(r >= 0 && r < rows && c >= 0 && c < cols)) at(`golden square ${key} is off the board`);
+  }
+  for (const link of new Set((layout ?? []).join('').replace(/[^1-9]/g, ''))) {
+    if ((layout ?? []).join('').split(link).length - 1 < 2) at(`chain ${link} has a single card`);
+  }
   if (level.limit.kind === 'moves' && !(level.limit.moves >= 1)) at('needs at least 1 move');
   if (level.limit.kind === 'time' && !(level.limit.ms >= 10_000)) at('needs at least 10 s');
   if (!level.goals.length) at('has no goals');
@@ -37,6 +44,7 @@ export function validateLevel(level: Level): string[] {
     if (g.type === 'clear' && obstaclesLeft(start, g.obstacle) === 0) at(`goal clears ${g.obstacle} but the board has none`);
     if (g.type === 'bombs' && !level.board.layout?.some((l) => l.includes('*')) && !level.deck?.bombChance) at('goal needs bombs but none are dealt');
     if (g.type === 'golden' && level.deck?.goldenChance === 0 && !level.board.layout?.some((l) => l.includes('G'))) at('goal needs golden cards but none are dealt');
+    if (g.type === 'squares' && !gold?.length) at('goal needs golden squares but the board has none');
     if (g.type === 'score' && g.target > level.stars[0]) at('score goal above the 2-star score');
   }
   const config = levelConfig(level);

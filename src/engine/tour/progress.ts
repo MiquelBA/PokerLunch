@@ -19,8 +19,12 @@ export function allLevels(tours: readonly Tour[]) {
   return tours.flatMap((t) => t.levels.map((level) => ({ tour: t, level })));
 }
 
-/** A level is open when it is the first, or the one before it has been passed, and its tour has the stars it asks for. */
+/**
+ * A level is open when it is the first, or the one before it has been passed, and its tour has the
+ * stars it asks for. A passed level always stays open (new tours can go in before old ones).
+ */
 export function isUnlocked(tours: readonly Tour[], progress: TourProgress, levelId: string): boolean {
+  if (progress.levels[levelId]) return true;
   const list = allLevels(tours);
   const i = list.findIndex((x) => x.level.id === levelId);
   if (i < 0) return false;
@@ -28,8 +32,9 @@ export function isUnlocked(tours: readonly Tour[], progress: TourProgress, level
   return i === 0 || !!progress.levels[list[i - 1].level.id];
 }
 
-/** Stars still needed to open a tour (0: it has enough). */
+/** Stars still needed to open a tour (0: it has enough, or a level of it was already passed). */
 export function starsMissing(tour: Tour, progress: TourProgress): number {
+  if (tour.levels.some((l) => progress.levels[l.id])) return 0;
   return Math.max(0, (tour.starsToOpen ?? 0) - totalStars(progress));
 }
 

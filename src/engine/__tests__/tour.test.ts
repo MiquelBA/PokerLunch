@@ -120,10 +120,10 @@ describe('validator', () => {
 });
 
 describe('the shipped tours', () => {
-  it('all 30 levels pass the validator', async () => {
+  it('all 60 levels pass the validator', async () => {
     const { TOURS } = await import('../tour/levels');
     const { validateTours } = await import('../tour/validate');
-    expect(TOURS.flatMap((t) => t.levels).length).toBe(30);
+    expect(TOURS.flatMap((t) => t.levels).length).toBe(60);
     expect(validateTours(TOURS)).toEqual([]);
   });
 });

@@ -1,5 +1,5 @@
 // Poker Tour texts (Catalan).
-import type { Goal } from '../../engine/tour/schema';
+import type { Goal, Obstacle } from '../../engine/tour/schema';
 import { HAND_NAMES } from '../strings';
 
 const n = (v: number) => v.toLocaleString('ca');
@@ -7,7 +7,7 @@ const n = (v: number) => v.toLocaleString('ca');
 export const TOUR_STRINGS = {
   title: 'Poker Tour',
   menuButton: 'Poker Tour',
-  menuInfo: '30 nivells en 3 ciutats',
+  menuInfo: '60 nivells en 6 ciutats',
   menuProgress: (level: number, stars: number, of: number) => `Nivell ${level} · ${stars}/${of} ★`,
   back: 'Torna',
   stars: (k: number, of: number) => `${k}/${of} ★`,
@@ -39,8 +39,15 @@ export const TOUR_STRINGS = {
     ice: 'Carta glaçada: no es pot tocar. Fes mans al seu costat per desglaçar-la.',
     block: 'Bloc: atura les cartes. Es trenca fent mans al seu costat.',
     bomb: 'Bomba: quan la fas servir, rebenta les cartes del voltant.',
+    fog: 'Boira: la carta està girada. Fes mans al seu costat per descobrir-la.',
+    gold: 'Casella daurada: la mà que hi passi per sobre val el doble.',
+    chain: 'Cadena: les cartes encadenades només es poden fer servir totes juntes. Una mà al costat trenca la cadena.',
   },
 } as const;
+
+const CLEAR_LABEL: Record<Obstacle, string> = { ice: 'Desglaça-ho tot', block: 'Trenca tots els blocs', fog: 'Aixeca tota la boira', chain: 'Trenca totes les cadenes' };
+const CLEAR_SHORT: Record<Obstacle, string> = { ice: 'Gel', block: 'Blocs', fog: 'Boira', chain: 'Cadenes' };
+const CLEAR_ICON: Record<Obstacle, string> = { ice: '❄️', block: '🧱', fog: '🌫️', chain: '⛓️' };
 
 /** A goal in a few words, with its target. */
 export function goalLabel(g: Goal): string {
@@ -48,9 +55,10 @@ export function goalLabel(g: Goal): string {
     case 'score': return `${n(g.target)} punts`;
     case 'hand': return `${g.count} × ${HAND_NAMES[g.hand]}`;
     case 'handAtLeast': return `${g.count} × ${HAND_NAMES[g.min]} o millor`;
-    case 'clear': return g.obstacle === 'ice' ? 'Desglaça-ho tot' : 'Trenca tots els blocs';
+    case 'clear': return CLEAR_LABEL[g.obstacle];
     case 'bombs': return `${g.count} bombes`;
     case 'golden': return `${g.count} cartes daurades`;
+    case 'squares': return `${g.count} mans per caselles daurades`;
   }
 }
 
@@ -60,9 +68,10 @@ export function goalShort(g: Goal): string {
     case 'score': return 'Punts';
     case 'hand': return HAND_NAMES[g.hand];
     case 'handAtLeast': return `${HAND_NAMES[g.min]}+`;
-    case 'clear': return g.obstacle === 'ice' ? 'Gel' : 'Blocs';
+    case 'clear': return CLEAR_SHORT[g.obstacle];
     case 'bombs': return 'Bombes';
     case 'golden': return 'Daurades';
+    case 'squares': return 'Caselles';
   }
 }
 
@@ -70,8 +79,9 @@ export function goalIcon(g: Goal): string {
   switch (g.type) {
     case 'score': return '🎯';
     case 'hand': case 'handAtLeast': return '🃏';
-    case 'clear': return g.obstacle === 'ice' ? '❄️' : '🧱';
+    case 'clear': return CLEAR_ICON[g.obstacle];
     case 'bombs': return '💣';
     case 'golden': return '⭐';
+    case 'squares': return '🟨';
   }
 }

@@ -29,10 +29,11 @@ function value(run: TourRun, h: FoundHand): number {
     if (g.type === 'clear') {
       for (let r = 0; r < s.board.length; r++) for (let c = 0; c < s.board[0].length; c++) {
         const x = cellAt(s.board, { row: r, col: c });
-        const hit = g.obstacle === 'ice' ? x?.ice : x?.block;
-        if (hit && h.path.some((q) => areNeighbours(q, { row: r, col: c }))) v += 2000;
+        if (x?.[g.obstacle] && h.path.some((q) => areNeighbours(q, { row: r, col: c }))) v += 2000;
       }
+      if (g.obstacle === 'chain') v += 2000 * cards.filter((c) => c.chain).length;
     }
+    if (g.type === 'squares' && s.config.bonusCells?.some((b) => h.path.some((q) => q.row === b.row && q.col === b.col))) v += 3000;
   }
   return v;
 }
@@ -79,8 +80,8 @@ for (const tour of TOURS) {
 // (30th and 70th percentile of the bot's wins with that limit), as JSON to paste into the levels.
 if (process.argv.includes('--tune')) {
   // The bot sees every hand on the board; people pick worse ones, so they get more moves than it needs.
-  const FACTOR: Record<string, number> = { barcelona: 2.5, montecarlo: 2.0, vegas: 1.7 };
-  const MIN_MOVES: Record<string, number> = { barcelona: 8, montecarlo: 8, vegas: 8 };
+  const FACTOR: Record<string, number> = { barcelona: 2.5, montecarlo: 2.0, london: 1.9, macau: 1.85, atlantic: 1.8, vegas: 1.7 };
+  const MIN_MOVES: Record<string, number> = { barcelona: 8, montecarlo: 8, london: 8, macau: 8, atlantic: 8, vegas: 8 };
   const out: Record<string, unknown> = {};
   for (const tour of TOURS) {
     for (const level of tour.levels) {

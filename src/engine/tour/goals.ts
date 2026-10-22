@@ -4,26 +4,30 @@ import { handStrength } from '../hands';
 import { HAND_TYPES, type GameEvent, type GameState } from '../types';
 import type { Goal, Obstacle } from './schema';
 
-/** What the board doesn't remember: bombs set off and golden cards played. */
+/** What the board doesn't remember: bombs set off, golden cards played, hands through golden squares. */
 export interface TourCounters {
   readonly bombs: number;
   readonly golden: number;
+  readonly squares: number;
 }
 
-export const NO_COUNTERS: TourCounters = { bombs: 0, golden: 0 };
+export const NO_COUNTERS: TourCounters = { bombs: 0, golden: 0, squares: 0 };
 
 export function countEvents(c: TourCounters, events: readonly GameEvent[]): TourCounters {
-  let { bombs, golden } = c;
+  let { bombs, golden, squares } = c;
   for (const e of events) {
     if (e.type === 'blast' && e.kind === 'bomb') bombs++;
-    if (e.type === 'hand') golden += e.cards.filter((x) => x.golden).length;
+    if (e.type === 'hand') {
+      golden += e.cards.filter((x) => x.golden).length;
+      if ((e.cellMultiplier ?? 1) > 1) squares++;
+    }
   }
-  return { bombs, golden };
+  return { bombs, golden, squares };
 }
 
 /** Obstacles of a kind on the board (cells, not layers). */
 export function obstaclesLeft(state: GameState, obstacle: Obstacle): number {
-  return cardsOf(state.board).filter((c) => (obstacle === 'ice' ? c.ice : c.block)).length;
+  return cardsOf(state.board).filter((c) => c[obstacle]).length;
 }
 
 export interface GoalProgress {
@@ -49,5 +53,6 @@ export function goalProgress(goal: Goal, state: GameState, counters: TourCounter
     }
     case 'bombs': return of(counters.bombs, goal.count);
     case 'golden': return of(counters.golden, goal.count);
+    case 'squares': return of(counters.squares, goal.count);
   }
 }

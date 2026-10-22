@@ -28,6 +28,13 @@ export interface CardSpec {
   readonly bomb?: boolean;
   /** Poker Tour only. A block: not a card, just hits left. Can't be traced, doesn't fall, stops falling cards. */
   readonly block?: number;
+  /** Poker Tour only. Fog: the card lies face down and can't be traced; it falls like any card. A hit turns it over. */
+  readonly fog?: boolean;
+  /**
+   * Poker Tour only. Chain: cards with the same link number are chained. They don't fall, and a hand
+   * may use one only together with the others; a hit next to one breaks the whole chain.
+   */
+  readonly chain?: number;
 }
 
 export interface Card extends CardSpec {
@@ -92,6 +99,8 @@ export interface GameConfig {
   readonly goldenMultiplier: number;
   /** Poker Tour: chance that a dealt card is a bomb. Absent or 0: never (and no random number drawn). */
   readonly bombChance?: number;
+  /** Poker Tour: golden squares of the board. A hand through any of them scores ×2. Absent: none. */
+  readonly bonusCells?: readonly Pos[];
   readonly hands: Readonly<Record<HandType, HandDef>>;
   /** Points per pip of the real cards in a hand (an ace is 14). */
   readonly pointsPerPip: number;
@@ -175,6 +184,8 @@ export type GameEvent =
       readonly points: number;
       readonly comboMultiplier: number;
       readonly goldenMultiplier: number;
+      /** Poker Tour: ×2 when the path crosses a golden square. Only when the level has them. */
+      readonly cellMultiplier?: number;
     }
   | {
       readonly type: 'blast';
@@ -193,7 +204,7 @@ export type GameEvent =
       readonly cells: readonly Pos[];
     }
   | {
-      /** Poker Tour: obstacles hit (ice loses layers, blocks lose hits). `after` is null once a block breaks. */
+      /** Poker Tour: obstacles hit (ice loses layers, blocks lose hits, fog lifts, chains break). `after` is null once a block breaks. */
       readonly type: 'damage';
       readonly cells: readonly { readonly pos: Pos; readonly before: Card; readonly after: Card | null }[];
     }
