@@ -97,6 +97,15 @@ export const STRINGS = {
   paused: 'En pausa',
   resume: 'Continua',
   quit: 'Surt',
+  /** Leaving a game before the clock runs out: nothing is saved or sent to the ranking. */
+  quitAsk: {
+    title: 'Vols sortir?',
+    body: 'Aquesta puntuació no es guardarà.',
+    daily: 'Aquesta puntuació no es guardarà i el repte d’avui ja compta com a fet.',
+    tour: 'No guanyaràs cap estrella en aquest nivell.',
+    yes: 'Sí, surt',
+    no: 'Continua jugant',
+  },
   go: 'Som-hi!',
   soundOn: 'So activat',
   soundOff: 'So desactivat',
