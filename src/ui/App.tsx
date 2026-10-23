@@ -27,10 +27,9 @@ import { TOUR_STRINGS } from './tour/strings';
 import { Champion } from './tour/Champion';
 import { GoalsBar, isChampion, LevelIntro, levelNumber, TourMap, TourResult } from './tour/TourUI';
 import type { GameDriver } from './useGame';
-import { newTableCode } from '../leaderboard/tables';
 import type { Ghost } from './tables/ghosts';
 import { clearTableLink, readTableLink, type LoadedTable } from './tables/table';
-import { MyTablesSheet, TableLobby, TableRace, TableResult, TablesIntro, type TableGame } from './tables/TableUI';
+import { MyTablesSheet, TableCreate, TableLobby, TableRace, TableResult, TablesIntro, type TableGame } from './tables/TableUI';
 import { TABLE_STRINGS } from './tables/strings';
 
 type Mode = 'free' | 'table' | 'tour';
@@ -168,29 +167,33 @@ export function App() {
     saveFlag(UI.tablesIntroKey, true);
     setIntroSeen(true);
   };
-  /** A new table: a fresh board, played first by whoever opens it. */
+  // A new table is opened on the server before anyone plays it (its seed while it's being opened),
+  // and its card then asks to invite first.
+  const [creating, setCreating] = useState<number | null>(null);
+  const [lobbyFresh, setLobbyFresh] = useState(false);
+  /** A new table: a fresh board that everyone, its host too, plays on equal terms. */
   const newTable = () => {
+    if (phase !== 'menu') game.quit();
     if (!introSeen) { setIntroNew(true); return; }
-    openNewTable();
+    setCreating(randomSeed());
   };
-  const openNewTable = () => {
-    setTable({ code: newTableCode(), seed: randomSeed(), host: null, ghosts: [], seatKey: null, isNew: true });
-    begin('table');
+  const tableCreated = (code: string) => {
+    setCreating(null);
+    setLobbyFresh(true);
+    setLobbyCode(code);
+  };
+  const closeLobby = () => {
+    setLobbyCode(null);
+    setLobbyFresh(false);
   };
   const sitAt = (t: LoadedTable, seatKey: string) => {
-    setLobbyCode(null);
-    setTable({ code: t.code, seed: t.seed, host: t.hostName, ghosts: t.ghosts, seatKey, isNew: false });
+    closeLobby();
+    setTable({ code: t.code, seed: t.seed, host: t.hostName, ghosts: t.ghosts, seatKey });
     begin('table');
-  };
-  /** The free game just played becomes a table: it takes the first seat and its link is shared. */
-  const freeToTable = () => {
-    setTable({ code: newTableCode(), seed: state.seed, host: null, ghosts: [], seatKey: null, isNew: true });
-    modeRef.current = 'table';
-    setMode('table');
   };
   /** Another try at a table (already started on the server), against everyone's best (mine included). */
   const tableAgain = (t: TableGame, seatKey: string, ghosts: readonly Ghost[], host: string) => {
-    setTable({ ...t, ghosts, host, seatKey, isNew: false });
+    setTable({ ...t, ghosts, host, seatKey });
     begin('table');
   };
 
@@ -386,7 +389,7 @@ export function App() {
         <div className="overlay dim">
           <div className="sheet" role="alertdialog" aria-labelledby="quit-ask-title">
             <h2 id="quit-ask-title">{STRINGS.quitAsk.title}</h2>
-            <p>{mode === 'tour' ? STRINGS.quitAsk.tour : mode === 'table' && table && !table.isNew ? STRINGS.quitAsk.table : STRINGS.quitAsk.body}</p>
+            <p>{mode === 'tour' ? STRINGS.quitAsk.tour : mode === 'table' ? STRINGS.quitAsk.table : STRINGS.quitAsk.body}</p>
             <button className="btn primary" type="button" onClick={() => { setQuitAsk(false); game.setPaused(false); }}>{STRINGS.quitAsk.no}</button>
             <button className="btn ghost" type="button" onClick={() => { setQuitAsk(false); if (mode === 'tour') backToMap(); else game.quit(); }}>{STRINGS.quitAsk.yes}</button>
           </div>
@@ -475,7 +478,6 @@ export function App() {
           newBest={newBest}
           stats={game.stats}
           ranking={leaderboardEnabled() ? LEADERBOARD.rankingId : null}
-          onChallenge={leaderboardEnabled() && state.moves > 0 ? freeToTable : undefined}
           onAgain={() => begin('free')}
           onMenu={game.quit}
         />
@@ -495,12 +497,15 @@ export function App() {
 
       {lobbyCode && phase === 'menu' && (
         introSeen
-          ? <TableLobby key={lobbyCode} code={lobbyCode} onPlay={sitAt} onClose={() => setLobbyCode(null)} />
+          ? <TableLobby key={lobbyCode} code={lobbyCode} fresh={lobbyFresh} onPlay={sitAt} onClose={closeLobby} />
           : <TablesIntro fromLink onDone={seeIntro} />
       )}
 
       {introNew && phase === 'menu' && (
-        <TablesIntro fromLink={false} onDone={() => { seeIntro(); setIntroNew(false); openNewTable(); }} />
+        <TablesIntro fromLink={false} onDone={() => { seeIntro(); setIntroNew(false); setCreating(randomSeed()); }} />
+      )}
+      {creating !== null && phase === 'menu' && (
+        <TableCreate seed={creating} onCreated={tableCreated} onClose={() => setCreating(null)} />
       )}
 
       {sheet === 'help' && <Help auto={pendingStart.current !== null} onClose={closeHelp} />}
@@ -728,13 +733,11 @@ interface GameOverProps {
   newBest: boolean;
   stats: NonNullable<ReturnType<typeof useGame>['stats']>;
   ranking: string | null;
-  /** Turns this game into a table and shares it. */
-  onChallenge?: () => void;
   onAgain: () => void;
   onMenu: () => void;
 }
 
-function GameOver({ score, best, newBest, stats, ranking, onChallenge, onAgain, onMenu }: GameOverProps) {
+function GameOver({ score, best, newBest, stats, ranking, onAgain, onMenu }: GameOverProps) {
   const shown = useCountUp(score, UI.countUpMs);
   const made = HAND_TYPES.filter((h) => stats.handCounts[h] > 0).reverse();
   return (
@@ -755,22 +758,10 @@ function GameOver({ score, best, newBest, stats, ranking, onChallenge, onAgain, 
         <p className="over-line">{STRINGS.bestMove}: {fmt(stats.bestMove)}</p>
         {ranking && score > 0 && <Leaderboard ranking={ranking} score={score} />}
         <Rating score={score} mode="free" />
-        {onChallenge && score > 0 && (
-          <button className="btn share" type="button" onClick={onChallenge}><ShareIcon /> {TABLE_STRINGS.challenge}</button>
-        )}
         <button className="btn primary big" type="button" onClick={onAgain}>{STRINGS.playAgain}</button>
         <button className="btn small ghost" type="button" onClick={onMenu}>{STRINGS.quit}</button>
       </div>
     </div>
-  );
-}
-
-function ShareIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-      <path d="M12 3 V15 M7 8 L12 3 L17 8" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M5 12 V19 H19 V12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
   );
 }
 

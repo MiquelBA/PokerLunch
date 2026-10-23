@@ -15,7 +15,10 @@ import { HAND_NAMES, STRINGS } from '../strings';
 import { HAND_TIER, UI } from '../uiConfig';
 import { ghostScoreAt, stepsBy, type Ghost } from './ghosts';
 import { TABLE_STRINGS as T } from './strings';
-import { forgetTable, loadMyTables, loadTable, publishGame, rememberTable, sitDown, tableLink, type LoadedTable, type SeatStats } from './table';
+import {
+  forgetTable, isClosed, loadMyTables, loadTable, openNewTable, publishGame, rememberTable, sitDown, tableLink, triesLeft,
+  type LoadedTable, type SeatStats,
+} from './table';
 
 const fmt = (v: number) => v.toLocaleString('ca');
 
@@ -23,33 +26,54 @@ const fmt = (v: number) => v.toLocaleString('ca');
 export interface TableGame {
   readonly code: string;
   readonly seed: number;
-  readonly host: string | null;
+  readonly host: string;
   readonly ghosts: readonly Ghost[];
-  /** The key of the try started for this game (a new table has none: it opens with the host's game). */
-  readonly seatKey: string | null;
-  /** Nobody has sat yet: the table is opened when this game is sent. */
-  readonly isNew: boolean;
+  /** The key of the try started for this game. */
+  readonly seatKey: string;
 }
 
 /** Shares a table's link with a line that fits how full it is. */
-export function inviteToTable(code: string, host: string, ghosts: readonly Ghost[], myScore: number): void {
-  const text = ghosts.length <= 1 ? T.shareNew(ghosts[0]?.score ?? myScore) : T.shareTable(host, ghosts.length, ghosts[0].score);
+export function inviteToTable(code: string, host: string, ghosts: readonly Ghost[], myScore?: number): void {
+  const text = ghosts.length <= 1 ? T.shareNew(UI.tables.maxAttempts, UI.tables.hours) : T.shareTable(host, ghosts.length, ghosts[0].score);
   void shareText(text, tableLink(code)).then((shared) => shared && track('share', myScore, { mode: 'table', players: ghosts.length }));
 }
+
+/** Whether the table is open and, if it limits tries, how many I have left. */
+function TableState({ table, me }: { table: LoadedTable; me: string }) {
+  const left = triesLeft(table, me);
+  if (isClosed(table)) {
+    const first = table.ghosts[0];
+    return (
+      <>
+        <p className="table-closed">{T.closed}</p>
+        {first && <p className="lb-rank">{first.playerId === me ? T.winnerMe : T.winner(first.name)}</p>}
+      </>
+    );
+  }
+  return (
+    <p className="table-clock">
+      {table.closesAt !== null && <span>⏳ {T.closesIn(table.closesAt - Date.now())}</span>}
+      {left !== null && table.stats[me] && <span>{left ? T.left(left) : T.noTries(table.maxAttempts ?? 0)}</span>}
+    </p>
+  );
+}
+
+/** I can start another try there. */
+const canPlay = (t: LoadedTable, me: string) => !t.old && !isClosed(t) && triesLeft(t, me) !== 0;
 
 // ---------------------------------------------------------------- seats
 
 /** A player's tries, under their name: "amfitrió · 3 intents", "5 intents · superat a l'intent 4". */
-function triesLine(stats: SeatStats | undefined, isHost: boolean, isMe: boolean): string {
+function triesLine(stats: SeatStats | undefined, max: number | null, isHost: boolean, isMe: boolean): string {
   if (!stats) return '';
-  const parts = [isHost ? T.host : '', T.tries(stats.attempts)];
+  const parts = [isHost ? T.host : '', T.tries(stats.attempts, max)];
   if (stats.beatAttempt !== null) parts.push(T.beat(stats.beatAttempt, stats.beatMs));
   if (stats.playing && !isMe) parts.push(T.playing);
   return parts.filter(Boolean).join(' · ');
 }
 
-function Seats({ table, me }: { table: Pick<LoadedTable, 'ghosts' | 'waiting' | 'stats' | 'hostId'>; me: string }) {
-  const { ghosts, waiting, stats, hostId } = table;
+function Seats({ table, me }: { table: Pick<LoadedTable, 'ghosts' | 'waiting' | 'stats' | 'hostId' | 'maxAttempts'>; me: string }) {
+  const { ghosts, waiting, stats, hostId, maxAttempts } = table;
   if (!ghosts.length && !waiting.length) return <p className="lb-note">{T.empty}</p>;
   return (
     <ol className="lb-list table-seats">
@@ -58,7 +82,7 @@ function Seats({ table, me }: { table: Pick<LoadedTable, 'ghosts' | 'waiting' | 
           <span className="lb-pos">{i + 1}</span>
           <span className="lb-who">
             {g.name}
-            <small className="lb-sub">{triesLine(stats[g.playerId], g.playerId === hostId, g.playerId === me)}</small>
+            <small className="lb-sub">{triesLine(stats[g.playerId], maxAttempts, g.playerId === hostId, g.playerId === me)}</small>
           </span>
           <span className="lb-score">{fmt(g.score)}</span>
         </li>
@@ -68,7 +92,7 @@ function Seats({ table, me }: { table: Pick<LoadedTable, 'ghosts' | 'waiting' | 
           <span className="lb-pos">·</span>
           <span className="lb-who">
             {w.name}
-            <small className="lb-sub">{T.tries(stats[w.playerId]?.attempts ?? 1)}</small>
+            <small className="lb-sub">{T.tries(stats[w.playerId]?.attempts ?? 1, maxAttempts)}</small>
           </span>
           <span className="lb-score">{stats[w.playerId]?.playing && w.playerId !== me ? T.playing : T.halfway}</span>
         </li>
@@ -112,8 +136,10 @@ function NameForm({ onSaved }: { onSaved: (player: Player) => void }) {
 type LoadStatus = 'loading' | 'ready' | 'missing' | 'error';
 
 /** What a table's link opens: who's there and how they did, and a try to play. */
-export function TableLobby({ code, onPlay, onClose }: {
+export function TableLobby({ code, fresh = false, onPlay, onClose }: {
   code: string;
+  /** I've just opened it: inviting comes first. */
+  fresh?: boolean;
   /** With the key of the try just started. */
   onPlay: (table: LoadedTable, seatKey: string) => void;
   onClose: () => void;
@@ -155,29 +181,70 @@ export function TableLobby({ code, onPlay, onClose }: {
         )}
         {status === 'ready' && table && (
           <>
-            <h2>{T.hostedBy(table.hostName)}</h2>
+            <h2>{fresh ? T.created : T.hostedBy(table.hostName)}</h2>
             {table.old ? <p>{T.old}</p> : (
               <>
-                <p className="table-lead">{T.lead}</p>
-                <p className="table-count">{T.players(table.ghosts.length + table.waiting.length)}</p>
-                <Seats table={table} me={me} />
-                {mine && myStats && <p className="lb-rank">{T.myBest(mine.score, myStats.attempts)}</p>}
-                {!mine && myStats && <p className="lb-rank">{T.mineLeft(myStats.attempts)}</p>}
+                {fresh ? <p className="table-lead">{T.createdLead(table.maxAttempts ?? UI.tables.maxAttempts, UI.tables.hours)}</p> : (
+                  <>
+                    <p className="table-lead">{T.lead}</p>
+                    <p className="table-count">{T.players(table.ghosts.length + table.waiting.length)}</p>
+                    <Seats table={table} me={me} />
+                  </>
+                )}
+                <TableState table={table} me={me} />
+                {mine && <p className="lb-rank">{T.myBest(mine.score)}</p>}
+                {!mine && myStats && <p className="lb-rank">{T.mineLeft}</p>}
+                {fresh && (
+                  <button className="btn primary big" type="button" onClick={() => inviteToTable(table.code, table.hostName, table.ghosts)}>{T.invite}</button>
+                )}
                 {sitting === 'name' && <NameForm onSaved={(p) => void takeSeat(table, p)} />}
                 {sitting === 'failed' && <p className="lb-note">{T.sitFailed}</p>}
                 {sitting === 'refused' && <p className="lb-note">{T.sitRefused}</p>}
-                {sitting !== 'name' && (
-                  <button className="btn primary big" type="button" disabled={sitting === 'busy'} onClick={() => void takeSeat(table, loadPlayer())}>
-                    {sitting === 'busy' ? T.sitting : myStats ? T.again : T.sit}
+                {sitting !== 'name' && canPlay(table, me) && (
+                  <button className={fresh ? 'btn share' : 'btn primary big'} type="button" disabled={sitting === 'busy'} onClick={() => void takeSeat(table, loadPlayer())}>
+                    {sitting === 'busy' ? T.sitting : fresh ? T.firstTry : myStats ? T.again : T.sit}
                   </button>
                 )}
-                {mine && (
-                  <button className="btn share" type="button" onClick={() => inviteToTable(table.code, table.hostName, table.ghosts, mine.score)}>{T.inviteMore}</button>
+                {!fresh && mine && !isClosed(table) && (
+                  <button className="btn share" type="button" onClick={() => inviteToTable(table.code, table.hostName, table.ghosts, mine?.score)}>{T.inviteMore}</button>
                 )}
-                {!myStats && <p className="table-once">{T.rules}</p>}
+                {!myStats && !isClosed(table) && <p className="table-once">{T.rules(table.maxAttempts)}</p>}
               </>
             )}
           </>
+        )}
+        <button className="btn small ghost" type="button" onClick={onClose}>{STRINGS.close}</button>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- a new table
+
+/** Opening a new table (a name first if there's none); then its card, where inviting comes first. */
+export function TableCreate({ seed, onCreated, onClose }: { seed: number; onCreated: (code: string) => void; onClose: () => void }) {
+  const [status, setStatus] = useState<'name' | 'busy' | 'failed'>(() => (loadPlayer() ? 'busy' : 'name'));
+  const create = async (player: Player | null) => {
+    if (!player) { setStatus('name'); return; }
+    setStatus('busy');
+    try {
+      onCreated(await openNewTable(player, seed));
+    } catch {
+      setStatus('failed');
+    }
+  };
+  useEffect(() => {
+    if (status === 'busy') void create(loadPlayer());
+    // Once, when it opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <div className="overlay dim">
+      <div className="sheet table-lobby" role="dialog" aria-modal="true" aria-label={T.creating}>
+        {status === 'name' && <NameForm onSaved={(p) => void create(p)} />}
+        {status === 'busy' && <p>{T.creating}</p>}
+        {status === 'failed' && (
+          <p>{T.createFailed} <button type="button" className="link-btn" onClick={() => void create(loadPlayer())}>{T.retry}</button></p>
         )}
         <button className="btn small ghost" type="button" onClick={onClose}>{STRINGS.close}</button>
       </div>
@@ -239,21 +306,16 @@ export function TableRace({ ghosts, score, elapsedMs }: { ghosts: readonly Ghost
 
 type SendStatus = 'name' | 'sending' | 'failed' | 'refused' | 'done';
 
-/** What this try did: its number, the best so far and how far the host is. */
+/** What this try did: its number, the best so far and how far the first place is. */
 function TryLine({ loaded, me, score, before }: { loaded: LoadedTable; me: string; score: number; before: number | undefined }) {
   const stats = loaded.stats[me];
   const mine = loaded.ghosts.find((g) => g.playerId === me);
   if (!stats || !mine) return null;
-  const isHost = loaded.hostId === me;
-  const hostBest = loaded.ghosts.find((g) => g.playerId === loaded.hostId)?.score ?? 0;
-  const versus = isHost ? null
-    : stats.beatAttempt === stats.attempts ? T.beatNow(loaded.hostName, stats.attempts)
-    : stats.beatAttempt !== null ? T.beatBefore(loaded.hostName, stats.beatAttempt)
-    : T.toBeat(loaded.hostName, hostBest - mine.score + 1);
+  const first = loaded.ghosts[0];
   return (
     <>
-      <p className="table-try">{T.attempt(stats.attempts, mine.score, before !== undefined && score > before)}</p>
-      {versus && <p className="lb-rank">{versus}</p>}
+      <p className="table-try">{T.attempt(stats.attempts, loaded.maxAttempts, mine.score, before !== undefined && score > before)}</p>
+      {first && first.playerId !== me && <p className="lb-rank">{T.toFirst(first.score - mine.score + 1)}</p>}
     </>
   );
 }
@@ -280,7 +342,7 @@ export function TableResult({ table, score, moves, onAgain, onNew, onMenu }: {
       if (player && !sent.current) {
         // Marked before sending, so a second call meanwhile can't send it twice.
         sent.current = true;
-        await publishGame({ code: table.code, seed: table.seed, isNew: table.isNew, seatKey: table.seatKey, player, score, moves }).catch((error: unknown) => {
+        await publishGame({ seatKey: table.seatKey, score, moves }).catch((error: unknown) => {
           if (error instanceof RejectedError) { setStatus('refused'); return; }
           sent.current = false;
           throw error;
@@ -289,7 +351,7 @@ export function TableResult({ table, score, moves, onAgain, onNew, onMenu }: {
       const t = await loadTable(table.code);
       setLoaded(t);
       const mine = t?.ghosts.find((g) => g.playerId === me);
-      rememberTable({ code: table.code, host: t?.hostName ?? player?.name ?? table.host ?? '', score: mine?.score });
+      rememberTable({ code: table.code, host: t?.hostName ?? table.host, score: mine?.score });
       setStatus((s) => (s === 'refused' ? s : 'done'));
     } catch {
       setStatus('failed');
@@ -302,7 +364,7 @@ export function TableResult({ table, score, moves, onAgain, onNew, onMenu }: {
     setAgain('busy');
     try {
       const key = await sitDown(table.code, player);
-      onAgain(key, loaded?.ghosts ?? table.ghosts, loaded?.hostName ?? table.host ?? player.name);
+      onAgain(key, loaded?.ghosts ?? table.ghosts, loaded?.hostName ?? table.host);
     } catch {
       setAgain('failed');
     }
@@ -316,7 +378,7 @@ export function TableResult({ table, score, moves, onAgain, onNew, onMenu }: {
 
   const ghosts = loaded?.ghosts ?? [];
   const place = ghosts.findIndex((g) => g.playerId === me) + 1;
-  const host = loaded?.hostName ?? table.host ?? loadPlayer()?.name ?? '';
+  const host = loaded?.hostName ?? table.host;
   // Sent (or refused): another try is a tap away.
   const settled = status === 'done' || status === 'refused';
   return (
@@ -337,14 +399,17 @@ export function TableResult({ table, score, moves, onAgain, onNew, onMenu }: {
             {place > 0 && ghosts.length > 1 && <p className="table-place">{T.place(place, ghosts.length)}</p>}
             {ghosts.length === 1 && place === 1 && <p className="lb-rank">{T.alone}</p>}
             <Seats table={loaded} me={me} />
+            <TableState table={loaded} me={me} />
           </>
         )}
         {settled && (
           <>
             {again === 'failed' && <p className="lb-note">{T.againFailed}</p>}
-            <button className="btn primary big" type="button" disabled={again === 'busy'} onClick={() => void playAgain()}>
-              {again === 'busy' ? T.sitting : T.again}
-            </button>
+            {(!loaded || canPlay(loaded, me)) && (
+              <button className="btn primary big" type="button" disabled={again === 'busy'} onClick={() => void playAgain()}>
+                {again === 'busy' ? T.sitting : T.again}
+              </button>
+            )}
             <button className="btn share" type="button" onClick={() => inviteToTable(table.code, host, ghosts, score)}>
               {ghosts.length <= 1 ? T.invite : T.inviteMore}
             </button>
@@ -410,9 +475,9 @@ export function TablesIntro({ fromLink, onDone }: { fromLink: boolean; onDone: (
           <li>
             <span className="intro-num">4</span>
             <div>
-              <h3>{I.step4}</h3>
+              <h3>{I.step4(UI.tables.maxAttempts, UI.tables.hours)}</h3>
               <div className="intro-row" aria-hidden="true">
-                <span className="lb-who">{I.you}<small className="lb-sub">{I.tries}</small></span>
+                <span className="lb-who">{I.you}<small className="lb-sub">{I.tries(UI.tables.maxAttempts)}</small></span>
                 <span className="lb-score">{fmt(5300)}</span>
               </div>
               <p>{I.step4Text}</p>
