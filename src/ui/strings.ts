@@ -78,7 +78,7 @@ export const STRINGS = {
   playAgain: 'Torna a jugar',
   howTo: 'Com es juga',
   /** The small buttons at the bottom of the start screen. */
-  menu: { more: 'Més opcions', help: 'Com es juga', sound: 'So', ranking: 'Rànquing', tables: 'Taules', feedback: 'Opina', install: 'Instal·la' },
+  menu: { more: 'Més opcions', help: 'Com es juga', sound: 'So', ranking: 'Rànquing', tables: 'Les meves taules', feedback: 'Opina', install: 'Instal·la' },
   score: 'Punts',
   best: 'Rècord',
   time: 'Temps',

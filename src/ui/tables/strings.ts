@@ -16,6 +16,23 @@ const minutes = (ms: number) => {
 export const TABLE_STRINGS = {
   menuButton: 'Taula amb amics',
   menuInfo: 'Qui farà més punts?',
+  // The first time: how a table works
+  intro: {
+    title: 'Taula amb amics',
+    lead: 'Un repte entre amics: qui fa més punts amb les mateixes cartes?',
+    step1: 'Tothom juga les mateixes cartes',
+    step1Text: 'Mateix tauler i mateix ordre de cartes per a tots. Aquí no hi ha sort: guanya qui juga millor.',
+    step2: 'Comparteix l’enllaç',
+    step2Text: 'Envia’l per WhatsApp o on vulguis. Els amics s’hi asseuen i juguen quan volen.',
+    step3: 'Veus com ho van fer els altres',
+    step3Text: 'Mentre jugues, a dalt veus quants punts portava cadascú en aquell mateix moment.',
+    step4: 'Torna-hi tantes vegades com vulguis',
+    step4Text: 'Compta la teva millor partida, i a la taula es veu quants intents t’ha costat.',
+    you: 'Tu',
+    tries: '3 intents',
+    go: 'Som-hi!',
+    see: 'Veure la taula',
+  },
   // Opening a table's link
   loading: 'Obrint la taula…',
   missing: 'Aquesta taula no existeix.',

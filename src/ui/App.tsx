@@ -30,7 +30,7 @@ import type { GameDriver } from './useGame';
 import { newTableCode } from '../leaderboard/tables';
 import type { Ghost } from './tables/ghosts';
 import { clearTableLink, readTableLink, type LoadedTable } from './tables/table';
-import { MyTablesSheet, TableLobby, TableRace, TableResult, type TableGame } from './tables/TableUI';
+import { MyTablesSheet, TableLobby, TableRace, TableResult, TablesIntro, type TableGame } from './tables/TableUI';
 import { TABLE_STRINGS } from './tables/strings';
 
 type Mode = 'free' | 'table' | 'tour';
@@ -161,8 +161,19 @@ export function App() {
   };
 
   // ------------------------------------------------------------ Tables
+  // The first table (opened here or from a link) starts with how tables work.
+  const [introSeen, setIntroSeen] = useState(() => loadFlag(UI.tablesIntroKey, false));
+  const [introNew, setIntroNew] = useState(false);
+  const seeIntro = () => {
+    saveFlag(UI.tablesIntroKey, true);
+    setIntroSeen(true);
+  };
   /** A new table: a fresh board, played first by whoever opens it. */
   const newTable = () => {
+    if (!introSeen) { setIntroNew(true); return; }
+    openNewTable();
+  };
+  const openNewTable = () => {
     setTable({ code: newTableCode(), seed: randomSeed(), host: null, ghosts: [], seatKey: null, isNew: true });
     begin('table');
   };
@@ -483,7 +494,13 @@ export function App() {
       )}
 
       {lobbyCode && phase === 'menu' && (
-        <TableLobby key={lobbyCode} code={lobbyCode} onPlay={sitAt} onClose={() => setLobbyCode(null)} />
+        introSeen
+          ? <TableLobby key={lobbyCode} code={lobbyCode} onPlay={sitAt} onClose={() => setLobbyCode(null)} />
+          : <TablesIntro fromLink onDone={seeIntro} />
+      )}
+
+      {introNew && phase === 'menu' && (
+        <TablesIntro fromLink={false} onDone={() => { seeIntro(); setIntroNew(false); openNewTable(); }} />
       )}
 
       {sheet === 'help' && <Help auto={pendingStart.current !== null} onClose={closeHelp} />}
@@ -696,8 +713,8 @@ function Menu({ best, sound, onPlay, onTable, onHelp, onSound, onTour, onRanking
         {best > 0 && <p className="menu-best">{STRINGS.best}: {fmt(best)}</p>}
         <nav className="menu-tools" aria-label={M.more}>
           <button type="button" className="menu-icon" onClick={onHelp} aria-label={M.help} title={M.help}><HelpIcon /></button>
-          {onTables && <button type="button" className="menu-tool" onClick={onTables}><span aria-hidden="true">🪑</span>{M.tables}</button>}
-          {onRanking && <button type="button" className="menu-tool" onClick={onRanking}><span aria-hidden="true">🏅</span>{M.ranking}</button>}
+          {onTables && <button type="button" className="menu-tool" onClick={onTables}>{M.tables}</button>}
+          {onRanking && <button type="button" className="menu-tool" onClick={onRanking}>{M.ranking}</button>}
           <button type="button" className="menu-icon" onClick={onSound} aria-pressed={sound} aria-label={M.sound} title={M.sound}><SoundIcon on={sound} /></button>
         </nav>
       </div>

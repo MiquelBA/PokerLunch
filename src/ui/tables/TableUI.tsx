@@ -1,6 +1,7 @@
 // Tables on screen: the card a link opens, the race beside the board while playing, the table after
 // the game, and the list of my tables.
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { parseCards } from '../../engine/notation';
 import type { Move } from '../../engine/types';
 import { RejectedError } from '../../leaderboard/api';
 import { LEADERBOARD } from '../../leaderboard/config';
@@ -8,6 +9,7 @@ import { deviceId } from '../../leaderboard/device';
 import { nameIsClean } from '../../leaderboard/names';
 import { cleanName, loadPlayer, savePlayer, type Player } from '../../leaderboard/player';
 import { track } from '../../leaderboard/track';
+import { CardFace } from '../CardFace';
 import { shareText } from '../share';
 import { HAND_NAMES, STRINGS } from '../strings';
 import { HAND_TIER, UI } from '../uiConfig';
@@ -352,6 +354,72 @@ export function TableResult({ table, score, moves, onAgain, onNew, onMenu }: {
           <button className="btn small" type="button" onClick={onNew}>{T.newTableShort}</button>
           <button className="btn small ghost" type="button" onClick={onMenu}>{STRINGS.quit}</button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- the first time
+
+const INTRO_CARDS = parseCards('AS KS QH JD 10C');
+
+/** How a table works, in four pictures: shown before the first table game (or the first table link). */
+export function TablesIntro({ fromLink, onDone }: { fromLink: boolean; onDone: () => void }) {
+  const I = T.intro;
+  return (
+    <div className="overlay dim">
+      <div className="sheet tables-intro" role="dialog" aria-modal="true" aria-label={I.title}>
+        <h2>🃏 {I.title}</h2>
+        <p className="intro-lead">{I.lead}</p>
+        <ol className="intro-steps">
+          <li>
+            <span className="intro-num">1</span>
+            <div>
+              <h3>{I.step1}</h3>
+              <div className="intro-same" aria-hidden="true">
+                {[I.you, 'Anna', 'Pau'].map((who) => (
+                  <div key={who} className="intro-player">
+                    <div className="intro-cards">{INTRO_CARDS.slice(0, 3).map((c, i) => <div key={i} className="mini"><CardFace card={c} /></div>)}</div>
+                    <span>{who}</span>
+                  </div>
+                ))}
+              </div>
+              <p>{I.step1Text}</p>
+            </div>
+          </li>
+          <li>
+            <span className="intro-num">2</span>
+            <div>
+              <h3>{I.step2}</h3>
+              <div className="intro-link" aria-hidden="true"><span>🔗</span><code>pokerlunch/#t=…</code><span>💬</span></div>
+              <p>{I.step2Text}</p>
+            </div>
+          </li>
+          <li>
+            <span className="intro-num">3</span>
+            <div>
+              <h3>{I.step3}</h3>
+              <div className="table-race intro-race" aria-hidden="true">
+                <span className="race-chip"><b>1</b><span className="race-name">Anna</span><span className="race-score">{fmt(4200)}</span></span>
+                <span className="race-chip me"><b>2</b><span className="race-name">{I.you}</span><span className="race-score">{fmt(3850)}</span></span>
+                <span className="race-chip"><b>3</b><span className="race-name">Pau</span><span className="race-score">{fmt(2100)}</span></span>
+              </div>
+              <p>{I.step3Text}</p>
+            </div>
+          </li>
+          <li>
+            <span className="intro-num">4</span>
+            <div>
+              <h3>{I.step4}</h3>
+              <div className="intro-row" aria-hidden="true">
+                <span className="lb-who">{I.you}<small className="lb-sub">{I.tries}</small></span>
+                <span className="lb-score">{fmt(5300)}</span>
+              </div>
+              <p>{I.step4Text}</p>
+            </div>
+          </li>
+        </ol>
+        <button className="btn primary big" type="button" onClick={onDone}>{fromLink ? I.see : I.go}</button>
       </div>
     </div>
   );
