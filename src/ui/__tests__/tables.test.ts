@@ -4,6 +4,7 @@ import { DEFAULT_CONFIG } from '../../engine/config';
 import { applyMove, findHands, newGame, tick } from '../../engine/game';
 import type { GameState } from '../../engine/types';
 import { fetchTable } from '../../leaderboard/tables';
+import { isClosed, triesLeft } from '../tables/table';
 import { decodeMoves, encodeMoves } from '../tables/codec';
 import { ghostScoreAt, replaySteps, stepsBy, type Ghost } from '../tables/ghosts';
 
@@ -64,10 +65,10 @@ describe('tables', () => {
 describe('a table from the server', () => {
   it('reads each seat\'s tries, the one being played and the try that beat the host', async () => {
     const rows: Record<string, unknown[]> = {
-      poker_tables: [{ code: 'abcd2345', rules: 'poker-v3', seed: '777', host_id: 'h', host_name: 'Anna' }],
+      poker_tables: [{ code: 'abcd2345', rules: 'poker-v3', seed: '777', host_id: 'h', host_name: 'Anna', max_attempts: 10, closes_at: '2026-10-24T10:00:00Z' }],
       poker_seats: [
-        { player_id: 'p', name: 'Pau', score: 2000, moves: 'x', attempts: 5, attempt_at: '2026-10-23T10:00:00Z', attempt_open: false, beat_attempt: 4, beat_ms: '420000' },
-        { player_id: 'j', name: 'Joan', score: null, moves: null, attempts: 2, attempt_at: '2026-10-23T11:00:00Z', attempt_open: true, beat_attempt: null, beat_ms: null },
+        { player_id: 'p', name: 'Pau', score: 2000, moves: 'x', attempts: 5, attempt_at: '2026-10-23T10:00:00Z', attempt_open: false, beat_attempt: 4, beat_ms: '420000', best_attempt: 5 },
+        { player_id: 'j', name: 'Joan', score: null, moves: null, attempts: 2, attempt_at: '2026-10-23T11:00:00Z', attempt_open: true, beat_attempt: null, beat_ms: null, best_attempt: null },
       ],
     };
     const fetcher = (async (url: string) => {
@@ -75,8 +76,23 @@ describe('a table from the server', () => {
       return new Response(JSON.stringify(rows[table]), { status: 200 });
     }) as unknown as typeof fetch;
     const found = await fetchTable('abcd2345', fetcher);
-    expect(found?.table.seed).toBe(777);
-    expect(found?.seats[0]).toMatchObject({ attempts: 5, openSince: null, beatAttempt: 4, beatMs: 420000 });
+    expect(found?.table).toMatchObject({ seed: 777, maxAttempts: 10, closesAt: Date.parse('2026-10-24T10:00:00Z') });
+    expect(found?.seats[0]).toMatchObject({ attempts: 5, openSince: null, beatAttempt: 4, beatMs: 420000, bestAttempt: 5 });
     expect(found?.seats[1]).toMatchObject({ attempts: 2, openSince: Date.parse('2026-10-23T11:00:00Z'), beatAttempt: null });
+  });
+});
+
+describe('a table\'s limits', () => {
+  const stats = { me: { attempts: 7, playing: false, beatAttempt: null, beatMs: null } };
+  it('counts the tries left, and none when there is no limit', () => {
+    expect(triesLeft({ maxAttempts: 10, stats }, 'me')).toBe(3);
+    expect(triesLeft({ maxAttempts: 10, stats }, 'someone else')).toBe(10);
+    expect(triesLeft({ maxAttempts: 5, stats }, 'me')).toBe(0);
+    expect(triesLeft({ maxAttempts: null, stats }, 'me')).toBeNull();
+  });
+  it('closes at its time, and never without one', () => {
+    expect(isClosed({ closesAt: 1000 }, 999)).toBe(false);
+    expect(isClosed({ closesAt: 1000 }, 1000)).toBe(true);
+    expect(isClosed({ closesAt: null }, 1e15)).toBe(false);
   });
 });

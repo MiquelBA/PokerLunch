@@ -1,12 +1,12 @@
-// Tables: one board for a group of friends. Whoever opens it plays first and shares the link; each
-// player who sits plays the same board as many times as they like, with the others' best games
-// running beside them as ghosts. Each try counts, and the table shows how many it took.
+// Tables: one board for a group of friends. Whoever opens it shares the link first; then everyone,
+// the host too, has the same tries on the same board until the table closes, with the others' best
+// games running beside them as ghosts. Each try counts, and the best game ranks.
 // The tables I've played are kept on the phone.
 import { DEFAULT_CONFIG } from '../../engine/config';
 import type { Move } from '../../engine/types';
 import { LEADERBOARD } from '../../leaderboard/config';
 import type { Player } from '../../leaderboard/player';
-import { fetchTable, finishSeat, openTable, sit } from '../../leaderboard/tables';
+import { createTable, fetchTable, finishSeat, newTableCode, sit } from '../../leaderboard/tables';
 import { gameUrl } from '../share';
 import { UI } from '../uiConfig';
 import { decodeMoves, encodeMoves } from './codec';
@@ -27,6 +27,10 @@ export interface LoadedTable {
   readonly seed: number;
   readonly hostId: string;
   readonly hostName: string;
+  /** Tries each player has; null: no limit (tables from before the limit). */
+  readonly maxAttempts: number | null;
+  /** When it closes (ms since 1970); null: never. */
+  readonly closesAt: number | null;
   /** Made with other scoring rules: its games can't be replayed any more. */
   readonly old: boolean;
   /** Everyone's best game, best first. */
@@ -62,7 +66,28 @@ export async function loadTable(code: string): Promise<LoadedTable | null> {
     const { score, steps } = replaySteps(table.seed, moves);
     if (score === seat.score) ghosts.push({ playerId: seat.playerId, name: seat.name, score, steps });
   }
-  return { code: table.code, seed: table.seed, hostId: table.hostId, hostName: table.hostName, old, ghosts, waiting, stats };
+  return {
+    code: table.code, seed: table.seed, hostId: table.hostId, hostName: table.hostName,
+    maxAttempts: table.maxAttempts, closesAt: table.closesAt, old, ghosts, waiting, stats,
+  };
+}
+
+/** The table can't be played any more. */
+export function isClosed(t: Pick<LoadedTable, 'closesAt'>, now = Date.now()): boolean {
+  return t.closesAt !== null && now >= t.closesAt;
+}
+
+/** Tries I have left there; null: no limit. */
+export function triesLeft(t: Pick<LoadedTable, 'maxAttempts' | 'stats'>, me: string): number | null {
+  return t.maxAttempts === null ? null : Math.max(0, t.maxAttempts - (t.stats[me]?.attempts ?? 0));
+}
+
+/** Opens a new table on a fresh board: nobody has played it yet, the host included. */
+export async function openNewTable(player: Player, seed: number): Promise<string> {
+  const code = newTableCode();
+  await createTable({ code, rules: LEADERBOARD.rankingId, seed, hostId: player.id, hostName: player.name });
+  rememberTable({ code, host: player.name });
+  return code;
 }
 
 /** Starts a try: it counts from now on, even if the game is left halfway. Returns the key that sends it. */
@@ -70,14 +95,9 @@ export function sitDown(code: string, player: Player): Promise<string> {
   return sit(code, player);
 }
 
-/** Sends a finished game: a new table opens with it; otherwise it goes to the try started with `seatKey`. */
-export async function publishGame(o: { code: string; seed: number; isNew: boolean; seatKey: string | null; player: Player; score: number; moves: readonly Move[] }): Promise<void> {
-  const game = { score: o.score, moves: encodeMoves(o.moves, DEFAULT_CONFIG.cols) };
-  if (o.isNew) {
-    await openTable({ code: o.code, rules: LEADERBOARD.rankingId, seed: o.seed, hostId: o.player.id, hostName: o.player.name }, game);
-  } else if (o.seatKey) {
-    await finishSeat(o.seatKey, game);
-  }
+/** Sends a finished game to the try started with `seatKey`. */
+export async function publishGame(o: { seatKey: string; score: number; moves: readonly Move[] }): Promise<void> {
+  await finishSeat(o.seatKey, { score: o.score, moves: encodeMoves(o.moves, DEFAULT_CONFIG.cols) });
 }
 
 // ---------------------------------------------------------------- the link

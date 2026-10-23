@@ -1,6 +1,7 @@
--- Poker Lunch: tables (taules). One player plays a board and invites others; everyone plays the same
--- board as many times as they like and the table keeps each player's best game (its moves draw the
--- "ghosts" in the game), how many tries they took and on which one they beat the host.
+-- Poker Lunch: tables (taules). One player opens a board and invites others; everyone, the host
+-- included, gets the same number of tries (10) on it until the table closes (24 hours after opening),
+-- and the table keeps each player's best game (its moves draw the "ghosts" in the game). Tables from
+-- before the limit (no max_attempts, no closes_at) stay unlimited.
 -- Every try is counted on the server when the game starts, so leaving halfway still counts as a try.
 -- Applied to the shared project (the one Orca Lunch uses). Reuses name_is_clean() from Orca Lunch's SQL.
 -- The game only reads the tables; every write goes through the three functions at the end.
@@ -32,6 +33,12 @@ create table if not exists public.poker_seats (
   -- One seat per player at each table; the tries are counted in it.
   unique (table_code, player_id)
 );
+
+-- Limits (added later; null on the tables opened before them: no limit).
+alter table public.poker_tables add column if not exists max_attempts integer check (max_attempts between 1 and 1000);
+alter table public.poker_tables add column if not exists closes_at timestamptz;
+-- The try that made the best game: with the same score, fewer tries wins.
+alter table public.poker_seats add column if not exists best_attempt integer check (best_attempt between 1 and 1000);
 
 -- Tries (added after the first version: a table on the server that already has seats gets them here).
 do $$
@@ -69,9 +76,9 @@ revoke all on public.poker_tables from anon, authenticated;
 revoke all on public.poker_seats from anon, authenticated;
 grant select on public.poker_tables to anon, authenticated;
 grant select (id, created_at, table_code, player_id, name, score, moves, finished_at, hidden,
-  attempts, attempt_at, attempt_open, played_ms, beat_attempt, beat_ms) on public.poker_seats to anon, authenticated;
+  attempts, attempt_at, attempt_open, played_ms, beat_attempt, beat_ms, best_attempt) on public.poker_seats to anon, authenticated;
 
--- Limits: 30 new tables and 150 seats per player a day (and, in poker_sit, 1000 tries at each table).
+-- Limits: 30 new tables and 150 seats per player a day (and each table's own limit of tries, in poker_sit).
 create or replace function public.poker_tables_rate_limit() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
@@ -98,7 +105,18 @@ drop trigger if exists poker_seats_rate_limit on public.poker_seats;
 create trigger poker_seats_rate_limit before insert on public.poker_seats
   for each row execute function public.poker_seats_rate_limit();
 
--- A new table with its host's game already played (the host plays before sharing).
+-- A new table, before anyone plays it: the host shares it first and plays like everyone else.
+create or replace function public.poker_create_table(p_code text, p_rules text, p_seed bigint, p_player uuid, p_name text)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not public.name_is_clean(p_name) then
+    raise exception 'name not allowed' using errcode = 'P0001';
+  end if;
+  insert into public.poker_tables (code, rules, seed, host_id, host_name, max_attempts, closes_at)
+    values (p_code, p_rules, p_seed, p_player, p_name, 10, now() + interval '24 hours');
+end $$;
+
+-- The first version: a new table with its host's game already played (no limits). Kept for old pages.
 create or replace function public.poker_open_table(p_code text, p_rules text, p_seed bigint, p_player uuid, p_name text, p_score integer, p_moves text)
 returns void language plpgsql security definer set search_path = public as $$
 begin
@@ -116,12 +134,21 @@ create or replace function public.poker_sit(p_code text, p_player uuid, p_name t
 returns uuid language plpgsql security definer set search_path = public as $$
 declare
   k uuid := gen_random_uuid();
+  t public.poker_tables;
 begin
   if not public.name_is_clean(p_name) then
     raise exception 'name not allowed' using errcode = 'P0001';
   end if;
-  if not exists (select 1 from public.poker_tables where code = p_code and not hidden) then
+  select * into t from public.poker_tables where code = p_code and not hidden;
+  if not found then
     raise exception 'no such table' using errcode = 'P0001';
+  end if;
+  if t.closes_at is not null and now() >= t.closes_at then
+    raise exception 'table closed' using errcode = 'P0001';
+  end if;
+  if t.max_attempts is not null and exists (select 1 from public.poker_seats
+      where table_code = p_code and player_id = p_player and attempts >= t.max_attempts) then
+    raise exception 'no tries left' using errcode = 'P0001';
   end if;
   update public.poker_seats
     set attempts = attempts + 1, attempt_at = now(), attempt_open = true, seat_key = k, name = p_name
@@ -133,8 +160,9 @@ begin
   return k;
 end $$;
 
--- Sending a try's game: once, and within an hour of starting it. Keeps it if it is the player's best,
--- and notes the first try that beats the host's best.
+-- Sending a try's game: once, and within an hour of starting it (so a try started before the table
+-- closes still counts). Keeps it if it is the player's best, and notes the first try that beats the
+-- host's best.
 create or replace function public.poker_finish(p_key uuid, p_score integer, p_moves text)
 returns void language plpgsql security definer set search_path = public as $$
 declare
@@ -156,15 +184,18 @@ begin
     score = case when s.score is null or p_score > s.score then p_score else s.score end,
     moves = case when s.score is null or p_score > s.score then p_moves else s.moves end,
     finished_at = case when s.score is null or p_score > s.score then now() else s.finished_at end,
-    beat_attempt = case when s.beat_attempt is null and p_score > coalesce(host_best, 0)
+    best_attempt = case when s.score is null or p_score > s.score then s.attempts else s.best_attempt end,
+    beat_attempt = case when s.beat_attempt is null and host_best is not null and p_score > host_best
       and s.player_id <> (select host_id from public.poker_tables where code = s.table_code)
       then s.attempts else s.beat_attempt end,
-    beat_ms = case when s.beat_attempt is null and p_score > coalesce(host_best, 0)
+    beat_ms = case when s.beat_attempt is null and host_best is not null and p_score > host_best
       and s.player_id <> (select host_id from public.poker_tables where code = s.table_code)
       then played else s.beat_ms end
     where id = s.id;
 end $$;
 
+revoke all on function public.poker_create_table(text, text, bigint, uuid, text) from public;
+grant execute on function public.poker_create_table(text, text, bigint, uuid, text) to anon, authenticated;
 revoke all on function public.poker_open_table(text, text, bigint, uuid, text, integer, text) from public;
 revoke all on function public.poker_sit(text, uuid, text) from public;
 revoke all on function public.poker_finish(uuid, integer, text) from public;
