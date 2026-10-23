@@ -245,7 +245,8 @@ export function useGame(onOver: (state: GameState) => void): GameApi {
     const s = stateRef.current;
     if (phaseRef.current !== 'playing' || pausedRef.current || busyRef.current) return false;
     const driver = driverRef.current;
-    const move = { path, atMs: s.elapsedMs };
+    // Whole ms, so a table game replays exactly from its saved moves.
+    const move = { path, atMs: Math.ceil(s.elapsedMs) };
     const played = driver ? driver.play(s, move) : null;
     const { state: next, events } = played ?? applyMove(s, move);
     if (!events.length) return false;

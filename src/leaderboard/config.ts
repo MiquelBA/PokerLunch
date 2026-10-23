@@ -22,7 +22,3 @@ export function leaderboardEnabled(): boolean {
   return Boolean(LEADERBOARD.url && LEADERBOARD.anonKey);
 }
 
-/** A day's challenge ranking: one score per player, only the first game (poker-v3-d20261021). */
-export function dailyRanking(date: string): string {
-  return `${LEADERBOARD.rankingId}-d${date.replaceAll('-', '')}`;
-}

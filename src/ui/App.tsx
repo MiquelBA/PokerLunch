@@ -1,4 +1,4 @@
-// Screens: menu, game (HUD, board, hand ladder), pause, end of game, how to play, daily challenge.
+// Screens: menu, game (HUD, board, hand ladder), pause, end of game, how to play, tables.
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 import { handAllowed, type TraceStatus } from '../engine/game';
 import { parseCards } from '../engine/notation';
@@ -7,18 +7,16 @@ import { playRung, playSound, setMuted, unlockAudio } from './audio';
 import { Board } from './Board';
 import { NeighbourRose, TraceDemo } from './TraceDemo';
 import { CardFace, CardSprite } from './CardFace';
-import { currentStreak, dailyDate, dailySeed, finishOfficial, loadDaily, msUntilNext, playedToday, shortDate, startOfficial } from './daily';
 import { vibrate } from './haptics';
 import { loadBest, loadFlag, saveBest, saveFlag } from './storage';
 import { HAND_EXAMPLES, HAND_NAMES, HAND_RULES, STRINGS } from './strings';
 import { BIG_TIER, HAND_TIER, ROYAL_TIER, UI } from './uiConfig';
 import { useGame, type Floater } from './useGame';
 import { DEFAULT_CONFIG } from '../engine/config';
-import { dailyRanking, LEADERBOARD, leaderboardEnabled } from '../leaderboard/config';
+import { LEADERBOARD, leaderboardEnabled } from '../leaderboard/config';
 import { Leaderboard } from '../leaderboard/Leaderboard';
 import { sendFeedback, track } from '../leaderboard/track';
 import { installMode, onInstallChange, promptInstall } from './install';
-import { shareText } from './share';
 import { TOURS } from '../engine/tour/levels';
 import { allLevels, currentLevelId, isUnlocked, newlyOpened, recordResult, starsMissing, totalStars, type TourProgress } from '../engine/tour/progress';
 import { playRun, startRun, tickRun, type TourRun } from '../engine/tour/run';
@@ -29,8 +27,12 @@ import { TOUR_STRINGS } from './tour/strings';
 import { Champion } from './tour/Champion';
 import { GoalsBar, isChampion, LevelIntro, levelNumber, TourMap, TourResult } from './tour/TourUI';
 import type { GameDriver } from './useGame';
+import { newTableCode } from '../leaderboard/tables';
+import { clearTableLink, readTableLink, type LoadedTable } from './tables/table';
+import { MyTablesSheet, TableLobby, TableRace, TableResult, type TableGame } from './tables/TableUI';
+import { TABLE_STRINGS } from './tables/strings';
 
-type Mode = 'free' | 'daily' | 'practice' | 'tour';
+type Mode = 'free' | 'table' | 'tour';
 
 interface Trace {
   readonly length: number;
@@ -47,9 +49,7 @@ export function App() {
   const [newBest, setNewBest] = useState(false);
   const [sound, setSound] = useState(() => loadFlag(UI.soundKey, true));
   const [mode, setMode] = useState<Mode>('free');
-  const [daily, setDaily] = useState(loadDaily);
-  const [day, setDay] = useState(dailyDate);
-  const [sheet, setSheet] = useState<'help' | 'ranking' | 'feedback' | 'install' | null>(null);
+  const [sheet, setSheet] = useState<'help' | 'ranking' | 'tables' | 'feedback' | 'install' | null>(null);
   const [trace, setTrace] = useState<Trace>({ length: 0, status: null, hand: null, points: 0 });
   const modeRef = useRef<Mode>('free');
   // Poker Tour: the map, the level picked, the run being played and the saved progress.
@@ -66,6 +66,14 @@ export function App() {
   const pendingStart = useRef<Mode | null>(null);
   // Leaving a game before the end asks first: the score of a game left halfway is lost.
   const [quitAsk, setQuitAsk] = useState(false);
+  // Tables: the one a link (or my list) opened, and the one being played.
+  const [lobbyCode, setLobbyCode] = useState<string | null>(readTableLink);
+  const [table, setTableState] = useState<TableGame | null>(null);
+  const tableRef = useRef<TableGame | null>(null);
+  const setTable = (t: TableGame | null) => {
+    tableRef.current = t;
+    setTableState(t);
+  };
 
   const onOver = useCallback((s: GameState) => {
     if (modeRef.current === 'tour') {
@@ -98,7 +106,6 @@ export function App() {
       setNewBest(false);
       return b;
     });
-    if (modeRef.current === 'daily') setDaily((d) => finishOfficial(d, dailyDate(), s.score));
     track('game_end', s.score, { mode: modeRef.current, moves: s.moves });
   }, []);
 
@@ -107,7 +114,26 @@ export function App() {
 
   useEffect(() => setMuted(!sound), [sound]);
 
-  useEffect(() => track('visit', undefined, { standalone: installMode() === null }), []);
+  useEffect(() => {
+    track('visit', undefined, { standalone: installMode() === null, ...(lobbyCode ? { table: lobbyCode } : {}) });
+    clearTableLink();
+    // Once, on arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // A table's link opened with the game already open (only the #t= part changes).
+  useEffect(() => {
+    const onHash = () => {
+      const code = readTableLink();
+      if (!code) return;
+      clearTableLink();
+      game.quit();
+      setTourView(null);
+      setLobbyCode(code);
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // The install offer can arrive (or go) at any time.
   const [install, setInstall] = useState(installMode);
   useEffect(() => onInstallChange(() => setInstall(installMode())), []);
@@ -123,12 +149,6 @@ export function App() {
     return () => { for (const ev of ['pointerdown', 'touchend', 'click', 'keydown']) window.removeEventListener(ev, unlock); };
   }, []);
 
-  // A new day brings a new challenge, even with the page left open.
-  useEffect(() => {
-    const t = window.setInterval(() => setDay(dailyDate()), 30_000);
-    return () => clearInterval(t);
-  }, []);
-
   const begin = (m: Mode) => {
     // The first game starts with how to play.
     if (!loadFlag(UI.helpSeenKey, false)) {
@@ -139,16 +159,35 @@ export function App() {
     setNewBest(false);
     modeRef.current = m;
     game.setDriver(null);
-    track('game_start', undefined, { mode: m });
+    const t = m === 'table' ? tableRef.current : null;
+    track('game_start', undefined, { mode: m, ...(t ? { table: t.code, counts: t.counts } : {}) });
     setMode(m);
-    if (m === 'daily') {
-      setDaily((d) => startOfficial(d, day));
-      game.start(dailySeed(day));
-    } else if (m === 'practice') game.start(dailySeed(day));
-    else game.start(Math.floor(Math.random() * 2 ** 31));
+    game.start(t ? t.seed : randomSeed());
   };
 
-  const startDaily = () => begin(playedToday(daily, day) ? 'practice' : 'daily');
+  // ------------------------------------------------------------ Tables
+  /** A new table: a fresh board, played first by whoever opens it. */
+  const newTable = () => {
+    setTable({ code: newTableCode(), seed: randomSeed(), host: null, ghosts: [], counts: true, isNew: true });
+    begin('table');
+  };
+  const sitAt = (t: LoadedTable, counts: boolean) => {
+    setLobbyCode(null);
+    setTable({ code: t.code, seed: t.seed, host: t.hostName, ghosts: t.ghosts, counts, isNew: false });
+    begin('table');
+  };
+  /** The free game just played becomes a table: it takes the first seat and its link is shared. */
+  const freeToTable = () => {
+    setTable({ code: newTableCode(), seed: state.seed, host: null, ghosts: [], counts: true, isNew: true });
+    modeRef.current = 'table';
+    setMode('table');
+  };
+  /** Playing a table again: practice, against everyone who sat (me included). */
+  const tableAgain = (t: TableGame) => {
+    setTable({ ...t, counts: false, isNew: false });
+    setLobbyCode(t.code);
+    game.quit();
+  };
 
   // ------------------------------------------------------------ Poker Tour
   const tourDriver = (level: Level): GameDriver => ({
@@ -250,8 +289,6 @@ export function App() {
   const left = Math.max(0, state.timeLimitMs - state.elapsedMs);
   const playing = phase === 'playing' || phase === 'countdown';
   const enabled = phase === 'playing' && !paused && !game.busy;
-  const streak = currentStreak(daily, day);
-
 
   return (
     <div className={`app ${playing || phase === 'over' ? 'in-game' : 'in-menu'}`}>
@@ -275,6 +312,7 @@ export function App() {
       </header>
 
       {mode === 'tour' && tourRun && playing && <GoalsBar run={tourRun} />}
+      {mode === 'table' && table && playing && <TableRace ghosts={table.ghosts} score={state.score} elapsedMs={state.elapsedMs} />}
 
       <main className="stage">
         <TraceLabel trace={trace} allowed={!trace.hand || handAllowed(trace.hand, state.config, state.tokens)} />
@@ -343,7 +381,7 @@ export function App() {
         <div className="overlay dim">
           <div className="sheet" role="alertdialog" aria-labelledby="quit-ask-title">
             <h2 id="quit-ask-title">{STRINGS.quitAsk.title}</h2>
-            <p>{mode === 'tour' ? STRINGS.quitAsk.tour : mode === 'daily' ? STRINGS.quitAsk.daily : STRINGS.quitAsk.body}</p>
+            <p>{mode === 'tour' ? STRINGS.quitAsk.tour : mode === 'table' && table?.counts ? STRINGS.quitAsk.table : STRINGS.quitAsk.body}</p>
             <button className="btn primary" type="button" onClick={() => { setQuitAsk(false); game.setPaused(false); }}>{STRINGS.quitAsk.no}</button>
             <button className="btn ghost" type="button" onClick={() => { setQuitAsk(false); if (mode === 'tour') backToMap(); else game.quit(); }}>{STRINGS.quitAsk.yes}</button>
           </div>
@@ -354,16 +392,13 @@ export function App() {
         <Menu
           best={best}
           sound={sound}
-          dailyDone={playedToday(daily, day)}
-          dailyScore={daily.date === day ? daily.score : null}
-          streak={streak}
-          day={day}
           onPlay={() => begin('free')}
-          onDaily={startDaily}
+          onTable={leaderboardEnabled() ? newTable : undefined}
           onHelp={() => setSheet('help')}
           onSound={toggleSound}
           onTour={openTour}
           onRanking={leaderboardEnabled() ? () => { track('ranking_view'); setSheet('ranking'); } : undefined}
+          onTables={leaderboardEnabled() ? () => setSheet('tables') : undefined}
           onFeedback={leaderboardEnabled() ? () => setSheet('feedback') : undefined}
           onInstall={install ? () => void offerInstall() : undefined}
           tourInfo={tourMenuInfo(tourProgress)}
@@ -430,26 +465,46 @@ export function App() {
         />
       )}
 
-      {phase === 'over' && mode !== 'tour' && game.stats && (
+      {phase === 'over' && mode === 'free' && game.stats && (
         <GameOver
           score={state.score}
           best={best}
           newBest={newBest}
           stats={game.stats}
-          mode={mode}
-          day={day}
-          ranking={!leaderboardEnabled() ? null : mode === 'free' ? LEADERBOARD.rankingId : mode === 'daily' ? dailyRanking(day) : null}
-          onAgain={() => begin(mode === 'free' ? 'free' : 'practice')}
+          ranking={leaderboardEnabled() ? LEADERBOARD.rankingId : null}
+          onChallenge={leaderboardEnabled() && state.moves > 0 ? freeToTable : undefined}
+          onAgain={() => begin('free')}
           onMenu={game.quit}
         />
       )}
 
+      {phase === 'over' && mode === 'table' && table && (
+        <TableResult
+          key={`${table.code}-${state.seed}-${state.moves}-${table.counts}`}
+          table={table}
+          score={state.score}
+          moves={state.history}
+          onAgain={() => tableAgain(table)}
+          onNew={newTable}
+          onMenu={game.quit}
+        />
+      )}
+
+      {lobbyCode && phase === 'menu' && (
+        <TableLobby key={lobbyCode} code={lobbyCode} onPlay={sitAt} onClose={() => setLobbyCode(null)} />
+      )}
+
       {sheet === 'help' && <Help auto={pendingStart.current !== null} onClose={closeHelp} />}
-      {sheet === 'ranking' && <RankingSheet day={day} onClose={() => setSheet(null)} />}
+      {sheet === 'ranking' && <RankingSheet onClose={() => setSheet(null)} />}
+      {sheet === 'tables' && <MyTablesSheet onOpen={(code) => { setSheet(null); setLobbyCode(code); }} onClose={() => setSheet(null)} />}
       {sheet === 'feedback' && <FeedbackSheet context={{ phase, score: state.score }} onClose={() => setSheet(null)} />}
       {sheet === 'install' && <InstallSheet onClose={() => setSheet(null)} />}
     </div>
   );
+}
+
+function randomSeed(): number {
+  return Math.floor(Math.random() * 2 ** 31);
 }
 
 function clockText(ms: number): string {
@@ -591,16 +646,14 @@ function floaterText(f: Floater): string {
 interface MenuProps {
   best: number;
   sound: boolean;
-  dailyDone: boolean;
-  dailyScore: number | null;
-  streak: number;
-  day: string;
   onPlay: () => void;
-  onDaily: () => void;
+  /** Open a new table (needs the server). */
+  onTable?: () => void;
   onHelp: () => void;
   onSound: () => void;
   onTour: () => void;
   onRanking?: () => void;
+  onTables?: () => void;
   onFeedback?: () => void;
   onInstall?: () => void;
   /** The Poker Tour button's second line: where the player is, or what it is. */
@@ -614,11 +667,10 @@ function tourMenuInfo(progress: TourProgress): string {
   return id ? TOUR_STRINGS.menuProgress(levelNumber(TOURS, id), stars, allLevels(TOURS).length * 3) : TOUR_STRINGS.stars(stars, allLevels(TOURS).length * 3);
 }
 
-function Menu({ best, sound, dailyDone, dailyScore, streak, day, onPlay, onDaily, onHelp, onSound, onTour, onRanking, onFeedback, onInstall, tourInfo }: MenuProps) {
+function Menu({ best, sound, onPlay, onTable, onHelp, onSound, onTour, onRanking, onTables, onFeedback, onInstall, tourInfo }: MenuProps) {
   const cards = useMemo(() => parseCards('TH JH QH KH AH'), []);
-  const ms = msUntilNext();
   const M = STRINGS.menu;
-  // Three levels: play and the Tour first, the daily challenge next, everything else small at the bottom.
+  // Two levels: a table, a game and the Tour first, everything else small at the bottom.
   return (
     <div className="overlay menu">
       <div className="menu-inner">
@@ -627,22 +679,22 @@ function Menu({ best, sound, dailyDone, dailyScore, streak, day, onPlay, onDaily
         </div>
         <h1 className="logo">POKER<br /><span>LUNCH</span></h1>
         <p className="tagline">{STRINGS.tagline}</p>
+        {onTable && (
+          <button className="btn table-hero" type="button" onClick={onTable}>
+            <span className="table-hero-title">🃏 {TABLE_STRINGS.menuButton}</span>
+            <small>{TABLE_STRINGS.menuInfo}</small>
+          </button>
+        )}
         <button className="btn primary big" type="button" onClick={onPlay}>{STRINGS.play}</button>
         <button className="btn tour-hero" type="button" onClick={onTour}>
           <span className="tour-hero-title">🏆 {TOUR_STRINGS.menuButton}</span>
           <small>{tourInfo}</small>
         </button>
-        <button className={`btn daily ${dailyDone ? 'done' : ''}`} type="button" onClick={onDaily}>
-          <span>{dailyDone ? '✓ ' : '📅 '}{dailyDone ? STRINGS.dailyPractice : STRINGS.daily} · {shortDate(day)}</span>
-          {dailyDone && dailyScore !== null && (
-            <small>{fmt(dailyScore)} · {STRINGS.nextDaily(Math.floor(ms / 3_600_000), Math.floor((ms % 3_600_000) / 60_000))}</small>
-          )}
-          {streak > 0 && <small className="streak">🔥 {STRINGS.streak(streak)}</small>}
-        </button>
         {best > 0 && <p className="menu-best">{STRINGS.best}: {fmt(best)}</p>}
         <nav className="menu-tools" aria-label={M.more}>
           <button type="button" onClick={onHelp}><span aria-hidden="true">❓</span>{M.help}</button>
           <button type="button" onClick={onSound} aria-pressed={sound}><span aria-hidden="true">{sound ? '🔊' : '🔇'}</span>{M.sound}</button>
+          {onTables && <button type="button" onClick={onTables}><span aria-hidden="true">🪑</span>{M.tables}</button>}
           {onRanking && <button type="button" onClick={onRanking}><span aria-hidden="true">🏅</span>{M.ranking}</button>}
           {onFeedback && <button type="button" onClick={onFeedback}><span aria-hidden="true">💬</span>{M.feedback}</button>}
           {onInstall && <button type="button" onClick={onInstall}><span aria-hidden="true">📲</span>{M.install}</button>}
@@ -657,29 +709,20 @@ interface GameOverProps {
   best: number;
   newBest: boolean;
   stats: NonNullable<ReturnType<typeof useGame>['stats']>;
-  mode: Mode;
-  day: string;
   ranking: string | null;
+  /** Turns this game into a table and shares it. */
+  onChallenge?: () => void;
   onAgain: () => void;
   onMenu: () => void;
 }
 
-function GameOver({ score, best, newBest, stats, mode, day, ranking, onAgain, onMenu }: GameOverProps) {
+function GameOver({ score, best, newBest, stats, ranking, onChallenge, onAgain, onMenu }: GameOverProps) {
   const shown = useCountUp(score, UI.countUpMs);
-  const [place, setPlace] = useState<{ rank: number; total: number } | null>(null);
-  const share = () => {
-    const text = STRINGS.share.text({
-      score, best: stats.bestHand ? HAND_NAMES[stats.bestHand] : '', daily: mode === 'free' ? null : shortDate(day),
-      rank: place?.rank ?? null, total: place?.total ?? null,
-    });
-    void shareText(text).then((shared) => shared && track('share', score, { mode }));
-  };
   const made = HAND_TYPES.filter((h) => stats.handCounts[h] > 0).reverse();
   return (
     <div className="overlay dim">
       <div className="sheet over">
         <h2>{STRINGS.gameOver}</h2>
-        {mode !== 'free' && <p className="over-mode">{mode === 'daily' ? STRINGS.daily : STRINGS.dailyPractice} · {shortDate(day)}</p>}
         <p className="over-score">{fmt(shown)}</p>
         {newBest ? <p className="over-best new">{STRINGS.newBest}</p> : <p className="over-best">{STRINGS.best}: {fmt(best)}</p>}
         <div className="over-hands">
@@ -692,10 +735,10 @@ function GameOver({ score, best, newBest, stats, mode, day, ranking, onAgain, on
           ))}
         </div>
         <p className="over-line">{STRINGS.bestMove}: {fmt(stats.bestMove)}</p>
-        {ranking && score > 0 && <Leaderboard ranking={ranking} score={score} daily={mode === 'daily'} onPlaced={(rank, total) => setPlace({ rank, total })} />}
-        <Rating score={score} mode={mode} />
-        {score > 0 && (
-          <button className="btn share" type="button" onClick={share}><ShareIcon /> {STRINGS.share.button}</button>
+        {ranking && score > 0 && <Leaderboard ranking={ranking} score={score} />}
+        <Rating score={score} mode="free" />
+        {onChallenge && score > 0 && (
+          <button className="btn share" type="button" onClick={onChallenge}><ShareIcon /> {TABLE_STRINGS.challenge}</button>
         )}
         <button className="btn primary big" type="button" onClick={onAgain}>{STRINGS.playAgain}</button>
         <button className="btn small ghost" type="button" onClick={onMenu}>{STRINGS.quit}</button>
@@ -783,20 +826,14 @@ function InstallSheet({ onClose }: { onClose: () => void }) {
   );
 }
 
-/** The ranking any time from the menu: the general one or today's challenge. */
-function RankingSheet({ day, onClose }: { day: string; onClose: () => void }) {
-  const [today, setToday] = useState(false);
+/** The general ranking any time from the menu. */
+function RankingSheet({ onClose }: { onClose: () => void }) {
   const T = STRINGS.leaderboard;
-  const ranking = today ? dailyRanking(day) : LEADERBOARD.rankingId;
   return (
     <div className="overlay dim" onClick={onClose}>
       <div className="sheet ranking-sheet" onClick={(e) => e.stopPropagation()}>
         <h2>{T.title}</h2>
-        <div className="tabs" role="tablist">
-          <button type="button" role="tab" aria-selected={!today} className={!today ? 'on' : ''} onClick={() => setToday(false)}>{T.tabGeneral}</button>
-          <button type="button" role="tab" aria-selected={today} className={today ? 'on' : ''} onClick={() => setToday(true)}>{T.tabToday} · {shortDate(day)}</button>
-        </div>
-        <Leaderboard key={ranking} ranking={ranking} />
+        <Leaderboard ranking={LEADERBOARD.rankingId} />
         <button className="btn primary" type="button" onClick={onClose}>{STRINGS.close}</button>
       </div>
     </div>
