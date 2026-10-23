@@ -2,8 +2,10 @@
 // with the hand. Optional: the game never depends on it.
 //
 // iPhone notes: Safari only starts audio inside a touch that ends (touchend/click), so unlockAudio
-// listens to those too; it asks for the "playback" audio session (Safari 17+) and also loops a
-// silent <audio> (older iOS), so the game sounds even with the silent switch on, like a music app.
+// listens to those too; it asks for the "playback" audio session (iOS 17+) or, on older iOS only,
+// loops a silent <audio>, so the game sounds even with the silent switch on, like a music app. Never
+// both: on iOS 17+ the silent <audio> starting late (on some later tap) takes the audio session and
+// leaves Web Audio silent.
 
 export type SoundName =
   | 'chips' | 'blast' | 'golden' | 'combo' | 'timeBonus' | 'invalid' | 'shuffle' | 'warning'
@@ -262,8 +264,11 @@ export function unlockAudio(create = true): void {
   try {
     // iPhone: play like a media app, so the silent switch doesn't mute the game (Safari 17+).
     const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
-    if (session && session.type !== 'playback') session.type = 'playback';
-    if (typeof document !== 'undefined' && !document.hidden) playKeepAlive();
+    if (session) {
+      if (session.type !== 'playback') session.type = 'playback';
+    } else if (typeof document !== 'undefined' && !document.hidden) {
+      playKeepAlive();
+    }
     // A closed context never plays again: start over with a new one.
     if (context?.state === 'closed') context = null;
     if (!context && !create) return;
