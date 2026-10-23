@@ -31,10 +31,10 @@ export const UI = {
   /** A cell is marked only when the finger is within this fraction of the cell from its centre. */
   hitRadius: 0.4,
   countdown: { steps: 3, stepMs: 700, goMs: 650 },
-  hintDelayMs: 20_000,
+  hintDelayMs: 10_000,
   /** Until the player has made this many hands, a finger traces the hint. */
   guideHands: 3,
-  guideDelayMs: 20_000,
+  guideDelayMs: 10_000,
   /**
    * Animation of a move, by hand tier: the cards gather and burst (collect), the blast, the fall.
    * The clock stops meanwhile, so big hands can take their time.

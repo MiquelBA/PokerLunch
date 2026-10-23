@@ -69,5 +69,6 @@ export const TABLE_STRINGS = {
   // The list of my tables
   mine: 'Les meves taules',
   mineEmpty: 'Encara no has jugat a cap taula. Munta’n una i convida els amics!',
+  forget: (host: string) => `Treu la taula ${of(host)} de la llista`,
   mineScore: (score: number | null) => (score === null ? 'Pendent' : `${n(score)} punts`),
 } as const;

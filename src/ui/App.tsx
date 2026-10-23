@@ -1,5 +1,5 @@
 // Screens: menu, game (HUD, board, hand ladder), pause, end of game, how to play, tables.
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { handAllowed, type TraceStatus } from '../engine/game';
 import { parseCards } from '../engine/notation';
 import { HAND_TYPES, type GameState, type HandType } from '../engine/types';
@@ -15,8 +15,8 @@ import { useGame, type Floater } from './useGame';
 import { DEFAULT_CONFIG } from '../engine/config';
 import { LEADERBOARD, leaderboardEnabled } from '../leaderboard/config';
 import { Leaderboard } from '../leaderboard/Leaderboard';
-import { sendFeedback, track } from '../leaderboard/track';
-import { installMode, onInstallChange, promptInstall } from './install';
+import { track } from '../leaderboard/track';
+import { installMode } from './install';
 import { TOURS } from '../engine/tour/levels';
 import { allLevels, currentLevelId, isUnlocked, newlyOpened, recordResult, starsMissing, totalStars, type TourProgress } from '../engine/tour/progress';
 import { playRun, startRun, tickRun, type TourRun } from '../engine/tour/run';
@@ -50,7 +50,7 @@ export function App() {
   const [newBest, setNewBest] = useState(false);
   const [sound, setSound] = useState(() => loadFlag(UI.soundKey, true));
   const [mode, setMode] = useState<Mode>('free');
-  const [sheet, setSheet] = useState<'help' | 'ranking' | 'tables' | 'feedback' | 'install' | null>(null);
+  const [sheet, setSheet] = useState<'help' | 'ranking' | 'tables' | null>(null);
   const [trace, setTrace] = useState<Trace>({ length: 0, status: null, hand: null, points: 0 });
   const modeRef = useRef<Mode>('free');
   // Poker Tour: the map, the level picked, the run being played and the saved progress.
@@ -135,19 +135,13 @@ export function App() {
     return () => window.removeEventListener('hashchange', onHash);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  // The install offer can arrive (or go) at any time.
-  const [install, setInstall] = useState(installMode);
-  useEffect(() => onInstallChange(() => setInstall(installMode())), []);
-  const offerInstall = async () => {
-    if (install === 'ios') { setSheet('install'); return; }
-    if (await promptInstall()) track('install');
-  };
 
   // Audio can only start inside a touch.
   useEffect(() => {
-    const unlock = () => unlockAudio();
-    for (const ev of ['pointerdown', 'touchend', 'click', 'keydown']) window.addEventListener(ev, unlock, { passive: true });
-    return () => { for (const ev of ['pointerdown', 'touchend', 'click', 'keydown']) window.removeEventListener(ev, unlock); };
+    const unlock = (e: Event) => unlockAudio(e.type !== 'pointerdown');
+    // Capture: a sheet that stops a click from bubbling doesn't stop the unlock.
+    for (const ev of ['pointerdown', 'touchend', 'click', 'keydown']) window.addEventListener(ev, unlock, { passive: true, capture: true });
+    return () => { for (const ev of ['pointerdown', 'touchend', 'click', 'keydown']) window.removeEventListener(ev, unlock, { capture: true }); };
   }, []);
 
   const begin = (m: Mode) => {
@@ -399,8 +393,6 @@ export function App() {
           onTour={openTour}
           onRanking={leaderboardEnabled() ? () => { track('ranking_view'); setSheet('ranking'); } : undefined}
           onTables={leaderboardEnabled() ? () => setSheet('tables') : undefined}
-          onFeedback={leaderboardEnabled() ? () => setSheet('feedback') : undefined}
-          onInstall={install ? () => void offerInstall() : undefined}
           tourInfo={tourMenuInfo(tourProgress)}
         />
       )}
@@ -497,8 +489,6 @@ export function App() {
       {sheet === 'help' && <Help auto={pendingStart.current !== null} onClose={closeHelp} />}
       {sheet === 'ranking' && <RankingSheet onClose={() => setSheet(null)} />}
       {sheet === 'tables' && <MyTablesSheet onOpen={(code) => { setSheet(null); setLobbyCode(code); }} onClose={() => setSheet(null)} />}
-      {sheet === 'feedback' && <FeedbackSheet context={{ phase, score: state.score }} onClose={() => setSheet(null)} />}
-      {sheet === 'install' && <InstallSheet onClose={() => setSheet(null)} />}
     </div>
   );
 }
@@ -654,8 +644,6 @@ interface MenuProps {
   onTour: () => void;
   onRanking?: () => void;
   onTables?: () => void;
-  onFeedback?: () => void;
-  onInstall?: () => void;
   /** The Poker Tour button's second line: where the player is, or what it is. */
   tourInfo: string;
 }
@@ -667,10 +655,25 @@ function tourMenuInfo(progress: TourProgress): string {
   return id ? TOUR_STRINGS.menuProgress(levelNumber(TOURS, id), stars, allLevels(TOURS).length * 3) : TOUR_STRINGS.stars(stars, allLevels(TOURS).length * 3);
 }
 
-function Menu({ best, sound, onPlay, onTable, onHelp, onSound, onTour, onRanking, onTables, onFeedback, onInstall, tourInfo }: MenuProps) {
+const HelpIcon = () => (
+  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10" />
+    <path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4.5" />
+    <circle cx="12" cy="17.6" r="0.6" fill="currentColor" />
+  </svg>
+);
+
+const SoundIcon = ({ on }: { on: boolean }) => (
+  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor" />
+    {on ? <path d="M15.5 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11" /> : <path d="M16 9.5l5 5M21 9.5l-5 5" />}
+  </svg>
+);
+
+function Menu({ best, sound, onPlay, onTable, onHelp, onSound, onTour, onRanking, onTables, tourInfo }: MenuProps) {
   const cards = useMemo(() => parseCards('TH JH QH KH AH'), []);
   const M = STRINGS.menu;
-  // Two levels: a table, a game and the Tour first, everything else small at the bottom.
+  // Two levels: a game, a table and the Tour first; tables and ranking at the bottom, between two quiet icons.
   return (
     <div className="overlay menu">
       <div className="menu-inner">
@@ -679,25 +682,23 @@ function Menu({ best, sound, onPlay, onTable, onHelp, onSound, onTour, onRanking
         </div>
         <h1 className="logo">POKER<br /><span>LUNCH</span></h1>
         <p className="tagline">{STRINGS.tagline}</p>
+        <button className="btn primary big" type="button" onClick={onPlay}>{STRINGS.play}</button>
         {onTable && (
           <button className="btn table-hero" type="button" onClick={onTable}>
             <span className="table-hero-title">🃏 {TABLE_STRINGS.menuButton}</span>
             <small>{TABLE_STRINGS.menuInfo}</small>
           </button>
         )}
-        <button className="btn primary big" type="button" onClick={onPlay}>{STRINGS.play}</button>
         <button className="btn tour-hero" type="button" onClick={onTour}>
           <span className="tour-hero-title">🏆 {TOUR_STRINGS.menuButton}</span>
           <small>{tourInfo}</small>
         </button>
         {best > 0 && <p className="menu-best">{STRINGS.best}: {fmt(best)}</p>}
         <nav className="menu-tools" aria-label={M.more}>
-          <button type="button" onClick={onHelp}><span aria-hidden="true">❓</span>{M.help}</button>
-          <button type="button" onClick={onSound} aria-pressed={sound}><span aria-hidden="true">{sound ? '🔊' : '🔇'}</span>{M.sound}</button>
-          {onTables && <button type="button" onClick={onTables}><span aria-hidden="true">🪑</span>{M.tables}</button>}
-          {onRanking && <button type="button" onClick={onRanking}><span aria-hidden="true">🏅</span>{M.ranking}</button>}
-          {onFeedback && <button type="button" onClick={onFeedback}><span aria-hidden="true">💬</span>{M.feedback}</button>}
-          {onInstall && <button type="button" onClick={onInstall}><span aria-hidden="true">📲</span>{M.install}</button>}
+          <button type="button" className="menu-icon" onClick={onHelp} aria-label={M.help} title={M.help}><HelpIcon /></button>
+          {onTables && <button type="button" className="menu-tool" onClick={onTables}><span aria-hidden="true">🪑</span>{M.tables}</button>}
+          {onRanking && <button type="button" className="menu-tool" onClick={onRanking}><span aria-hidden="true">🏅</span>{M.ranking}</button>}
+          <button type="button" className="menu-icon" onClick={onSound} aria-pressed={sound} aria-label={M.sound} title={M.sound}><SoundIcon on={sound} /></button>
         </nav>
       </div>
     </div>
@@ -775,53 +776,6 @@ function Rating({ score, mode }: { score: number; mode: Mode }) {
           <button type="button" onClick={() => rate('down')} aria-label={T.down}>👎</button>
         </>
       )}
-    </div>
-  );
-}
-
-/** A short message to us (stored with the phone's random id, the phase and the score). */
-function FeedbackSheet({ context, onClose }: { context: Record<string, string | number>; onClose: () => void }) {
-  const T = STRINGS.feedback;
-  const [text, setText] = useState('');
-  const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
-  const send = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!text.trim() || status === 'sending') return;
-    setStatus('sending');
-    try {
-      await sendFeedback(text.trim(), { ...context, ua: navigator.userAgent.slice(0, 200) });
-      setStatus('sent');
-    } catch {
-      setStatus('failed');
-    }
-  };
-  return (
-    <div className="overlay dim" onClick={onClose}>
-      <form className="sheet feedback" onClick={(e) => e.stopPropagation()} onSubmit={send} role="dialog" aria-modal="true" aria-label={T.title}>
-        <h2>{T.title}</h2>
-        {status === 'sent' ? <p>{T.thanks}</p> : (
-          <>
-            <p>{T.hint}</p>
-            <textarea value={text} maxLength={UI.feedbackMaxChars} rows={5} placeholder={T.placeholder} onChange={(e) => setText(e.target.value)} autoFocus />
-            {status === 'failed' && <p className="feedback-error">{T.failed}</p>}
-            <button type="submit" className="btn primary" disabled={!text.trim() || status === 'sending'}>{status === 'sending' ? T.sending : T.send}</button>
-          </>
-        )}
-        <button type="button" className="btn small ghost" onClick={onClose}>{STRINGS.close}</button>
-      </form>
-    </div>
-  );
-}
-
-/** iPhone: how to add the game to the home screen (Safari has no install prompt). */
-function InstallSheet({ onClose }: { onClose: () => void }) {
-  return (
-    <div className="overlay dim" onClick={onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={STRINGS.install.title}>
-        <h2>{STRINGS.install.title}</h2>
-        <ol className="install-steps">{STRINGS.install.iosSteps.map((s) => <li key={s}>{s}</li>)}</ol>
-        <button className="btn primary" type="button" onClick={onClose}>{STRINGS.close}</button>
-      </div>
     </div>
   );
 }

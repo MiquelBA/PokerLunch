@@ -13,7 +13,7 @@ import { HAND_NAMES, STRINGS } from '../strings';
 import { HAND_TIER, UI } from '../uiConfig';
 import { ghostScoreAt, stepsBy, type Ghost } from './ghosts';
 import { TABLE_STRINGS as T } from './strings';
-import { loadMyTables, loadTable, publishGame, rememberTable, sitDown, tableLink, type LoadedTable, type SeatStats } from './table';
+import { forgetTable, loadMyTables, loadTable, publishGame, rememberTable, sitDown, tableLink, type LoadedTable, type SeatStats } from './table';
 
 const fmt = (v: number) => v.toLocaleString('ca');
 
@@ -360,7 +360,7 @@ export function TableResult({ table, score, moves, onAgain, onNew, onMenu }: {
 // ---------------------------------------------------------------- my tables
 
 export function MyTablesSheet({ onOpen, onClose }: { onOpen: (code: string) => void; onClose: () => void }) {
-  const [list] = useState(loadMyTables);
+  const [list, setList] = useState(loadMyTables);
   return (
     <div className="overlay dim" onClick={onClose}>
       <div className="sheet ranking-sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={T.mine}>
@@ -373,6 +373,7 @@ export function MyTablesSheet({ onOpen, onClose }: { onOpen: (code: string) => v
                   <span className="lb-who">{T.hostedBy(t.host)}</span>
                   <span className="lb-score">{T.mineScore(t.score)}</span>
                 </button>
+                <button type="button" className="my-tables-forget" onClick={() => setList(forgetTable(t.code))} aria-label={T.forget(t.host)}>✕</button>
               </li>
             ))}
           </ol>
