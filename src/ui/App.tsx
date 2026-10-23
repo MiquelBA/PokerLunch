@@ -364,7 +364,7 @@ export function App() {
           <div className="sheet">
             <h2>{STRINGS.paused}</h2>
             <button className="btn primary" type="button" onClick={() => game.setPaused(false)}>{STRINGS.resume}</button>
-            <button className="btn" type="button" onClick={toggleSound}>{sound ? STRINGS.soundOn : STRINGS.soundOff}</button>
+            <button className="btn sound-toggle" type="button" onClick={toggleSound} aria-pressed={!sound}><SoundIcon on={sound} />{sound ? STRINGS.soundMute : STRINGS.soundUnmute}</button>
             <button className="btn" type="button" onClick={() => setSheet('help')}>{STRINGS.howTo}</button>
             <button className="btn ghost" type="button" onClick={() => setQuitAsk(true)}>{mode === 'tour' ? TOUR_STRINGS.map : STRINGS.quit}</button>
           </div>

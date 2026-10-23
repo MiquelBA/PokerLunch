@@ -749,6 +749,8 @@ button:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
 }
 .menu-tool span { font-size: 26px; line-height: 1; }
 /* Help and sound: a quiet white icon each, at the ends. */
+.btn.sound-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.btn.sound-toggle svg { width: 22px; height: 22px; flex: none; }
 .menu-icon { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; color: #fff; opacity: 0.6; }
 .overlay.tour-map { z-index: 22; place-items: start center; overflow-y: auto; background: radial-gradient(ellipse 120% 80% at 50% 0%, var(--felt-hi) 0%, var(--felt) 50%, var(--felt-deep) 100%); }
 .tour-map-inner { width: min(100%, 440px); display: flex; flex-direction: column; gap: 14px; padding-bottom: 24px; }

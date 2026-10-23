@@ -96,8 +96,9 @@ export const STRINGS = {
     no: 'Continua jugant',
   },
   go: 'Som-hi!',
-  soundOn: 'So activat',
-  soundOff: 'So desactivat',
+  // What the pause screen's button does (not how the sound is now).
+  soundMute: 'Silencia el so',
+  soundUnmute: 'Activa el so',
   close: 'Tanca',
   notAHand: 'No és cap mà',
   noTokens: (hand: string) => `${hand}: sense fitxes`,
