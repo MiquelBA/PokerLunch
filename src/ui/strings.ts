@@ -90,7 +90,7 @@ export const STRINGS = {
   quitAsk: {
     title: 'Vols sortir?',
     body: 'Aquesta puntuació no es guardarà.',
-    table: 'La teva partida quedarà a mitges a la taula i ja només hi podràs practicar.',
+    table: 'Aquest intent comptarà igualment a la taula.',
     tour: 'No guanyaràs cap estrella en aquest nivell.',
     yes: 'Sí, surt',
     no: 'Continua jugant',

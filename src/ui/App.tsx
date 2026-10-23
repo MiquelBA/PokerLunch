@@ -28,6 +28,7 @@ import { Champion } from './tour/Champion';
 import { GoalsBar, isChampion, LevelIntro, levelNumber, TourMap, TourResult } from './tour/TourUI';
 import type { GameDriver } from './useGame';
 import { newTableCode } from '../leaderboard/tables';
+import type { Ghost } from './tables/ghosts';
 import { clearTableLink, readTableLink, type LoadedTable } from './tables/table';
 import { MyTablesSheet, TableLobby, TableRace, TableResult, type TableGame } from './tables/TableUI';
 import { TABLE_STRINGS } from './tables/strings';
@@ -160,7 +161,7 @@ export function App() {
     modeRef.current = m;
     game.setDriver(null);
     const t = m === 'table' ? tableRef.current : null;
-    track('game_start', undefined, { mode: m, ...(t ? { table: t.code, counts: t.counts } : {}) });
+    track('game_start', undefined, { mode: m, ...(t ? { table: t.code } : {}) });
     setMode(m);
     game.start(t ? t.seed : randomSeed());
   };
@@ -168,25 +169,24 @@ export function App() {
   // ------------------------------------------------------------ Tables
   /** A new table: a fresh board, played first by whoever opens it. */
   const newTable = () => {
-    setTable({ code: newTableCode(), seed: randomSeed(), host: null, ghosts: [], counts: true, seatKey: null, isNew: true });
+    setTable({ code: newTableCode(), seed: randomSeed(), host: null, ghosts: [], seatKey: null, isNew: true });
     begin('table');
   };
-  const sitAt = (t: LoadedTable, seatKey: string | null) => {
+  const sitAt = (t: LoadedTable, seatKey: string) => {
     setLobbyCode(null);
-    setTable({ code: t.code, seed: t.seed, host: t.hostName, ghosts: t.ghosts, counts: seatKey !== null, seatKey, isNew: false });
+    setTable({ code: t.code, seed: t.seed, host: t.hostName, ghosts: t.ghosts, seatKey, isNew: false });
     begin('table');
   };
   /** The free game just played becomes a table: it takes the first seat and its link is shared. */
   const freeToTable = () => {
-    setTable({ code: newTableCode(), seed: state.seed, host: null, ghosts: [], counts: true, seatKey: null, isNew: true });
+    setTable({ code: newTableCode(), seed: state.seed, host: null, ghosts: [], seatKey: null, isNew: true });
     modeRef.current = 'table';
     setMode('table');
   };
-  /** Playing a table again: practice, against everyone who sat (me included). */
-  const tableAgain = (t: TableGame) => {
-    setTable({ ...t, counts: false, seatKey: null, isNew: false });
-    setLobbyCode(t.code);
-    game.quit();
+  /** Another try at a table (already started on the server), against everyone's best (mine included). */
+  const tableAgain = (t: TableGame, seatKey: string, ghosts: readonly Ghost[], host: string) => {
+    setTable({ ...t, ghosts, host, seatKey, isNew: false });
+    begin('table');
   };
 
   // ------------------------------------------------------------ Poker Tour
@@ -381,7 +381,7 @@ export function App() {
         <div className="overlay dim">
           <div className="sheet" role="alertdialog" aria-labelledby="quit-ask-title">
             <h2 id="quit-ask-title">{STRINGS.quitAsk.title}</h2>
-            <p>{mode === 'tour' ? STRINGS.quitAsk.tour : mode === 'table' && table?.counts && !table.isNew ? STRINGS.quitAsk.table : STRINGS.quitAsk.body}</p>
+            <p>{mode === 'tour' ? STRINGS.quitAsk.tour : mode === 'table' && table && !table.isNew ? STRINGS.quitAsk.table : STRINGS.quitAsk.body}</p>
             <button className="btn primary" type="button" onClick={() => { setQuitAsk(false); game.setPaused(false); }}>{STRINGS.quitAsk.no}</button>
             <button className="btn ghost" type="button" onClick={() => { setQuitAsk(false); if (mode === 'tour') backToMap(); else game.quit(); }}>{STRINGS.quitAsk.yes}</button>
           </div>
@@ -480,11 +480,11 @@ export function App() {
 
       {phase === 'over' && mode === 'table' && table && (
         <TableResult
-          key={`${table.code}-${state.seed}-${state.moves}-${table.counts}`}
+          key={`${table.code}-${table.seatKey}-${state.moves}`}
           table={table}
           score={state.score}
           moves={state.history}
-          onAgain={() => tableAgain(table)}
+          onAgain={(key, ghosts, host) => tableAgain(table, key, ghosts, host)}
           onNew={newTable}
           onMenu={game.quit}
         />

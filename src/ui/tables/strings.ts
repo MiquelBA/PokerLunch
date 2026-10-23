@@ -2,8 +2,16 @@
 
 const n = (v: number) => v.toLocaleString('ca');
 
+const vowel = (name: string) => /^[aeiouàèéíïòóúüh]/i.test(name);
 /** "de Pau", "d’Anna". */
-const of = (name: string) => (/^[aeiouàèéíïòóúüh]/i.test(name) ? `d’${name}` : `de ${name}`);
+const of = (name: string) => (vowel(name) ? `d’${name}` : `de ${name}`);
+/** "Pau", "l’Anna": only the apostrophe, which doesn't depend on who it is. */
+const art = (name: string) => (vowel(name) ? `l’${name}` : name);
+/** Time played, rounded: "3 min", "1 h 05 min". */
+const minutes = (ms: number) => {
+  const m = Math.max(1, Math.round(ms / 60_000));
+  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min`;
+};
 
 export const TABLE_STRINGS = {
   menuButton: 'Munta una taula',
@@ -17,33 +25,41 @@ export const TABLE_STRINGS = {
   players: (k: number) => (k === 1 ? '1 jugador' : `${k} jugadors`),
   lead: 'Mateixes cartes i en el mateix ordre per a tothom. Mentre jugues, veuràs com ho van fer els altres.',
   sit: 'Seu i juga',
+  again: 'Torna-hi',
   sitting: 'Seient…',
-  once: 'Només tens un intent: si surts a mitja partida, compta igualment.',
+  rules: 'Hi pots jugar tantes vegades com vulguis: compta la teva millor partida, i tothom veurà quants intents t’ha costat.',
   sitFailed: 'No s’ha pogut seure a la taula. Comprova la connexió i torna-ho a provar.',
   sitRefused: 'Ara mateix no pots seure a aquesta taula.',
   playing: 'jugant…',
   halfway: 'a mitges',
-  played: (score: number) => `Ja hi has jugat: ${n(score)} punts`,
-  practice: 'Torna-hi (no compta)',
-  left: 'Ja hi vas començar una partida i la vas deixar a mitges: ara només hi pots practicar.',
-  practiceShort: 'Practica-hi',
+  host: 'amfitrió',
+  tries: (k: number) => (k === 1 ? '1 intent' : `${k} intents`),
+  beat: (attempt: number, ms: number | null) => `superat a l’intent ${attempt}${ms === null ? '' : ` (${minutes(ms)})`}`,
+  myBest: (best: number, tries: number) => `La teva millor: ${n(best)} punts en ${tries === 1 ? '1 intent' : `${tries} intents`}`,
+  mineLeft: (tries: number) => `Portes ${tries === 1 ? '1 intent' : `${tries} intents`} i encara cap partida acabada.`,
   empty: 'Encara no hi ha ningú.',
   // Playing: the race with the others' ghosts
   race: 'La cursa de la taula',
   you: 'Tu',
+  yourBest: 'La teva millor',
   alert: (name: string, hand: string) => `${name}: ${hand}!`,
   // After the game
-  practiceNote: 'Partida de pràctica: no compta a la taula.',
-  sending: 'Seient a la taula…',
+  sending: 'Guardant a la taula…',
   failed: 'No s’ha pogut guardar a la taula.',
   refused: 'Aquesta partida no s’ha pogut guardar a la taula.',
   retry: 'Torna-ho a provar',
   place: (p: number, total: number) => (p === 1 ? `Lideres la taula! Posició 1 de ${total}` : `Posició ${p} de ${total}`),
+  attempt: (k: number, best: number, isBest: boolean) =>
+    `Intent ${k} · ${isBest ? 'nova millor partida!' : `la teva millor: ${n(best)}`}`,
+  beatNow: (host: string, k: number) => `Has superat ${art(host)} a l’intent ${k}! 🎉`,
+  beatBefore: (host: string, k: number) => `Ja vas superar ${art(host)} a l’intent ${k}.`,
+  toBeat: (host: string, gap: number) => `Et falten ${n(gap)} punts per superar ${art(host)}.`,
+  againFailed: 'No s’ha pogut començar un altre intent. Comprova la connexió.',
   alone: 'Taula oberta! Ara convida-hi gent.',
   askName: 'Posa el teu nom perquè els altres sàpiguen qui ets',
   invite: 'Convida a la taula',
   inviteMore: 'Convida més gent',
-  newTable: 'Munta una taula nova',
+  newTableShort: 'Taula nova',
   // The free game's end: the same game becomes a table
   challenge: 'Repta amics amb aquest tauler',
   // What goes with the link

@@ -13,19 +13,17 @@ import { HAND_NAMES, STRINGS } from '../strings';
 import { HAND_TIER, UI } from '../uiConfig';
 import { ghostScoreAt, stepsBy, type Ghost } from './ghosts';
 import { TABLE_STRINGS as T } from './strings';
-import { loadMyTables, loadTable, publishGame, rememberTable, sitDown, tableLink, type LoadedTable } from './table';
+import { loadMyTables, loadTable, publishGame, rememberTable, sitDown, tableLink, type LoadedTable, type SeatStats } from './table';
 
 const fmt = (v: number) => v.toLocaleString('ca');
 
-/** The table being played: its board, the others' games and whether this game counts. */
+/** The table being played: its board and everyone's best game. */
 export interface TableGame {
   readonly code: string;
   readonly seed: number;
   readonly host: string | null;
   readonly ghosts: readonly Ghost[];
-  /** The player's first game at this table: it fills in a seat. Later ones are practice. */
-  readonly counts: boolean;
-  /** The seat taken at the start (a new table has none: it opens with the host's game). */
+  /** The key of the try started for this game (a new table has none: it opens with the host's game). */
   readonly seatKey: string | null;
   /** Nobody has sat yet: the table is opened when this game is sent. */
   readonly isNew: boolean;
@@ -39,33 +37,40 @@ export function inviteToTable(code: string, host: string, ghosts: readonly Ghost
 
 // ---------------------------------------------------------------- seats
 
-function Seats({ ghosts, waiting = [], me, practice }: {
-  ghosts: readonly Ghost[]; waiting?: LoadedTable['waiting']; me: string; practice?: number;
-}) {
-  if (!ghosts.length && !waiting.length && practice === undefined) return <p className="lb-note">{T.empty}</p>;
+/** A player's tries, under their name: "amfitrió · 3 intents", "5 intents · superat a l'intent 4". */
+function triesLine(stats: SeatStats | undefined, isHost: boolean, isMe: boolean): string {
+  if (!stats) return '';
+  const parts = [isHost ? T.host : '', T.tries(stats.attempts)];
+  if (stats.beatAttempt !== null) parts.push(T.beat(stats.beatAttempt, stats.beatMs));
+  if (stats.playing && !isMe) parts.push(T.playing);
+  return parts.filter(Boolean).join(' · ');
+}
+
+function Seats({ table, me }: { table: Pick<LoadedTable, 'ghosts' | 'waiting' | 'stats' | 'hostId'>; me: string }) {
+  const { ghosts, waiting, stats, hostId } = table;
+  if (!ghosts.length && !waiting.length) return <p className="lb-note">{T.empty}</p>;
   return (
     <ol className="lb-list table-seats">
       {ghosts.map((g, i) => (
         <li key={g.playerId} className={g.playerId === me ? 'me' : undefined}>
           <span className="lb-pos">{i + 1}</span>
-          <span className="lb-who">{g.name}</span>
+          <span className="lb-who">
+            {g.name}
+            <small className="lb-sub">{triesLine(stats[g.playerId], g.playerId === hostId, g.playerId === me)}</small>
+          </span>
           <span className="lb-score">{fmt(g.score)}</span>
         </li>
       ))}
       {waiting.map((w) => (
         <li key={w.playerId} className={`waiting ${w.playerId === me ? 'me' : ''}`}>
           <span className="lb-pos">·</span>
-          <span className="lb-who">{w.name}</span>
-          <span className="lb-score">{w.playing && w.playerId !== me ? T.playing : T.halfway}</span>
+          <span className="lb-who">
+            {w.name}
+            <small className="lb-sub">{T.tries(stats[w.playerId]?.attempts ?? 1)}</small>
+          </span>
+          <span className="lb-score">{stats[w.playerId]?.playing && w.playerId !== me ? T.playing : T.halfway}</span>
         </li>
       ))}
-      {practice !== undefined && (
-        <li className="practice">
-          <span className="lb-pos">·</span>
-          <span className="lb-who">{T.practiceNote}</span>
-          <span className="lb-score">{fmt(practice)}</span>
-        </li>
-      )}
     </ol>
   );
 }
@@ -104,16 +109,16 @@ function NameForm({ onSaved }: { onSaved: (player: Player) => void }) {
 
 type LoadStatus = 'loading' | 'ready' | 'missing' | 'error';
 
-/** What a table's link opens: who's there and how they did, and a seat to play. */
+/** What a table's link opens: who's there and how they did, and a try to play. */
 export function TableLobby({ code, onPlay, onClose }: {
   code: string;
-  /** With the seat's key for the game that counts; null for practice. */
-  onPlay: (table: LoadedTable, seatKey: string | null) => void;
+  /** With the key of the try just started. */
+  onPlay: (table: LoadedTable, seatKey: string) => void;
   onClose: () => void;
 }) {
   const [status, setStatus] = useState<LoadStatus>('loading');
   const [table, setTable] = useState<LoadedTable | null>(null);
-  // Sitting down: a name first if there's none, then the seat (it's spent from now on).
+  // Sitting down: a name first if there's none, then the try (it counts from now on).
   const [sitting, setSitting] = useState<'idle' | 'name' | 'busy' | 'failed' | 'refused'>('idle');
   const me = deviceId();
   const takeSeat = async (t: LoadedTable, player: Player | null) => {
@@ -124,8 +129,6 @@ export function TableLobby({ code, onPlay, onClose }: {
       rememberTable({ code: t.code, host: t.hostName });
       onPlay(t, key);
     } catch (error) {
-      // Already sitting there (another tab, another try): show the table as it is now.
-      if (error instanceof RejectedError && error.status === 409) { setSitting('idle'); load(); return; }
       setSitting(error instanceof RejectedError ? 'refused' : 'failed');
     }
   };
@@ -139,7 +142,7 @@ export function TableLobby({ code, onPlay, onClose }: {
   };
   useEffect(load, [code]); // eslint-disable-line react-hooks/exhaustive-deps
   const mine = table?.ghosts.find((g) => g.playerId === me);
-  const left = table?.waiting.some((w) => w.playerId === me);
+  const myStats = table?.stats[me];
   return (
     <div className="overlay dim">
       <div className="sheet table-lobby" role="dialog" aria-modal="true" aria-label={table ? T.hostedBy(table.hostName) : T.loading}>
@@ -155,31 +158,21 @@ export function TableLobby({ code, onPlay, onClose }: {
               <>
                 <p className="table-lead">{T.lead}</p>
                 <p className="table-count">{T.players(table.ghosts.length + table.waiting.length)}</p>
-                <Seats ghosts={table.ghosts} waiting={table.waiting} me={me} />
-                {mine ? (
-                  <>
-                    <p className="lb-rank">{T.played(mine.score)}</p>
-                    <button className="btn share" type="button" onClick={() => inviteToTable(table.code, table.hostName, table.ghosts, mine.score)}>{T.inviteMore}</button>
-                    <button className="btn primary" type="button" onClick={() => onPlay(table, null)}>{T.practice}</button>
-                  </>
-                ) : left ? (
-                  <>
-                    <p className="lb-rank">{T.left}</p>
-                    <button className="btn primary" type="button" onClick={() => onPlay(table, null)}>{T.practice}</button>
-                  </>
-                ) : (
-                  <>
-                    {sitting === 'name' && <NameForm onSaved={(p) => void takeSeat(table, p)} />}
-                    {sitting === 'failed' && <p className="lb-note">{T.sitFailed}</p>}
-                    {sitting === 'refused' && <p className="lb-note">{T.sitRefused}</p>}
-                    {sitting !== 'name' && (
-                      <button className="btn primary big" type="button" disabled={sitting === 'busy'} onClick={() => void takeSeat(table, loadPlayer())}>
-                        {sitting === 'busy' ? T.sitting : T.sit}
-                      </button>
-                    )}
-                    <p className="table-once">{T.once}</p>
-                  </>
+                <Seats table={table} me={me} />
+                {mine && myStats && <p className="lb-rank">{T.myBest(mine.score, myStats.attempts)}</p>}
+                {!mine && myStats && <p className="lb-rank">{T.mineLeft(myStats.attempts)}</p>}
+                {sitting === 'name' && <NameForm onSaved={(p) => void takeSeat(table, p)} />}
+                {sitting === 'failed' && <p className="lb-note">{T.sitFailed}</p>}
+                {sitting === 'refused' && <p className="lb-note">{T.sitRefused}</p>}
+                {sitting !== 'name' && (
+                  <button className="btn primary big" type="button" disabled={sitting === 'busy'} onClick={() => void takeSeat(table, loadPlayer())}>
+                    {sitting === 'busy' ? T.sitting : myStats ? T.again : T.sit}
+                  </button>
                 )}
+                {mine && (
+                  <button className="btn share" type="button" onClick={() => inviteToTable(table.code, table.hostName, table.ghosts, mine.score)}>{T.inviteMore}</button>
+                )}
+                {!myStats && <p className="table-once">{T.rules}</p>}
               </>
             )}
           </>
@@ -203,9 +196,10 @@ function shownRunners(all: readonly Runner[], max: number): { runner: Runner; pl
 
 /** Everyone's score at this moment of the game, ranked, and a word when a ghost makes a big hand. */
 export function TableRace({ ghosts, score, elapsedMs }: { ghosts: readonly Ghost[]; score: number; elapsedMs: number }) {
+  const me = deviceId();
   const runners: Runner[] = [
     { id: 'me', name: T.you, score, me: true },
-    ...ghosts.map((g) => ({ id: g.playerId, name: g.name, score: ghostScoreAt(g, elapsedMs), me: false })),
+    ...ghosts.map((g) => ({ id: g.playerId, name: g.playerId === me ? T.yourBest : g.name, score: ghostScoreAt(g, elapsedMs), me: false })),
   ].sort((a, b) => b.score - a.score || Number(b.me) - Number(a.me));
   const [alert, setAlert] = useState<{ id: number; text: string } | null>(null);
   const seen = useRef<number[]>([]);
@@ -217,9 +211,9 @@ export function TableRace({ ghosts, score, elapsedMs }: { ghosts: readonly Ghost
       if (k <= before) return;
       seen.current[i] = k;
       const big = g.steps.slice(before, k).filter((s) => HAND_TIER[s.hand] >= UI.tables.alertTier).pop();
-      if (big) setAlert({ id: elapsedMs, text: T.alert(g.name, HAND_NAMES[big.hand]) });
+      if (big) setAlert({ id: elapsedMs, text: T.alert(g.playerId === me ? T.yourBest : g.name, HAND_NAMES[big.hand]) });
     });
-  }, [ghosts, elapsedMs]);
+  }, [ghosts, elapsedMs, me]);
   useEffect(() => {
     if (!alert) return;
     const t = window.setTimeout(() => setAlert(null), UI.tables.alertMs);
@@ -243,24 +237,45 @@ export function TableRace({ ghosts, score, elapsedMs }: { ghosts: readonly Ghost
 
 type SendStatus = 'name' | 'sending' | 'failed' | 'refused' | 'done';
 
-/** The end of a table game: it takes its seat (asking a name first if needed), then the table. */
+/** What this try did: its number, the best so far and how far the host is. */
+function TryLine({ loaded, me, score, before }: { loaded: LoadedTable; me: string; score: number; before: number | undefined }) {
+  const stats = loaded.stats[me];
+  const mine = loaded.ghosts.find((g) => g.playerId === me);
+  if (!stats || !mine) return null;
+  const isHost = loaded.hostId === me;
+  const hostBest = loaded.ghosts.find((g) => g.playerId === loaded.hostId)?.score ?? 0;
+  const versus = isHost ? null
+    : stats.beatAttempt === stats.attempts ? T.beatNow(loaded.hostName, stats.attempts)
+    : stats.beatAttempt !== null ? T.beatBefore(loaded.hostName, stats.beatAttempt)
+    : T.toBeat(loaded.hostName, hostBest - mine.score + 1);
+  return (
+    <>
+      <p className="table-try">{T.attempt(stats.attempts, mine.score, before !== undefined && score > before)}</p>
+      {versus && <p className="lb-rank">{versus}</p>}
+    </>
+  );
+}
+
+/** The end of a table game: it goes to the table (asking a name first if needed), then the table. */
 export function TableResult({ table, score, moves, onAgain, onNew, onMenu }: {
   table: TableGame;
   score: number;
   moves: readonly Move[];
-  onAgain: () => void;
+  /** Another try has started: its key and the table as it is now. */
+  onAgain: (seatKey: string, ghosts: readonly Ghost[], host: string) => void;
   onNew: () => void;
   onMenu: () => void;
 }) {
-  const [status, setStatus] = useState<SendStatus>(() => (table.counts && !loadPlayer() ? 'name' : 'sending'));
+  const [status, setStatus] = useState<SendStatus>(() => (!loadPlayer() ? 'name' : 'sending'));
   const [loaded, setLoaded] = useState<LoadedTable | null>(null);
+  const [again, setAgain] = useState<'idle' | 'busy' | 'failed'>('idle');
   const sent = useRef(false);
   const me = deviceId();
 
   const send = async (player: Player | null) => {
     setStatus('sending');
     try {
-      if (table.counts && player && !sent.current) {
+      if (player && !sent.current) {
         // Marked before sending, so a second call meanwhile can't send it twice.
         sent.current = true;
         await publishGame({ code: table.code, seed: table.seed, isNew: table.isNew, seatKey: table.seatKey, player, score, moves }).catch((error: unknown) => {
@@ -279,6 +294,18 @@ export function TableResult({ table, score, moves, onAgain, onNew, onMenu }: {
     }
   };
 
+  const playAgain = async () => {
+    const player = loadPlayer();
+    if (!player) { setStatus('name'); return; }
+    setAgain('busy');
+    try {
+      const key = await sitDown(table.code, player);
+      onAgain(key, loaded?.ghosts ?? table.ghosts, loaded?.hostName ?? table.host ?? player.name);
+    } catch {
+      setAgain('failed');
+    }
+  };
+
   useEffect(() => {
     if (status === 'sending') void send(loadPlayer());
     // Once per end screen.
@@ -288,6 +315,8 @@ export function TableResult({ table, score, moves, onAgain, onNew, onMenu }: {
   const ghosts = loaded?.ghosts ?? [];
   const place = ghosts.findIndex((g) => g.playerId === me) + 1;
   const host = loaded?.hostName ?? table.host ?? loadPlayer()?.name ?? '';
+  // Sent (or refused): another try is a tap away.
+  const settled = status === 'done' || status === 'refused';
   return (
     <div className="overlay dim">
       <div className="sheet over table-result">
@@ -299,21 +328,28 @@ export function TableResult({ table, score, moves, onAgain, onNew, onMenu }: {
           <p className="lb-note">{T.failed} <button type="button" className="link-btn" onClick={() => void send(loadPlayer())}>{T.retry}</button></p>
         )}
         {status === 'refused' && <p className="lb-note">{T.refused}</p>}
-        {(status === 'done' || status === 'refused') && loaded && (
+        {settled && loaded && (
           <>
+            <TryLine loaded={loaded} me={me} score={score} before={table.ghosts.find((g) => g.playerId === me)?.score} />
             <h3>{T.hostedBy(host)}</h3>
-            {table.counts && place > 0 && (
-              <p className="lb-rank">{ghosts.length === 1 ? T.alone : T.place(place, ghosts.length)}</p>
-            )}
-            <Seats ghosts={ghosts} waiting={loaded.waiting} me={me} practice={table.counts ? undefined : score} />
-            <button className="btn primary big" type="button" onClick={() => inviteToTable(table.code, host, ghosts, score)}>
+            {place > 0 && ghosts.length > 1 && <p className="table-place">{T.place(place, ghosts.length)}</p>}
+            {ghosts.length === 1 && place === 1 && <p className="lb-rank">{T.alone}</p>}
+            <Seats table={loaded} me={me} />
+          </>
+        )}
+        {settled && (
+          <>
+            {again === 'failed' && <p className="lb-note">{T.againFailed}</p>}
+            <button className="btn primary big" type="button" disabled={again === 'busy'} onClick={() => void playAgain()}>
+              {again === 'busy' ? T.sitting : T.again}
+            </button>
+            <button className="btn share" type="button" onClick={() => inviteToTable(table.code, host, ghosts, score)}>
               {ghosts.length <= 1 ? T.invite : T.inviteMore}
             </button>
           </>
         )}
-        <button className="btn share" type="button" onClick={onNew}>{T.newTable}</button>
         <div className="menu-row">
-          <button className="btn small" type="button" onClick={onAgain}>{T.practiceShort}</button>
+          <button className="btn small" type="button" onClick={onNew}>{T.newTableShort}</button>
           <button className="btn small ghost" type="button" onClick={onMenu}>{STRINGS.quit}</button>
         </div>
       </div>

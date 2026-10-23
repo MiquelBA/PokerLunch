@@ -1,5 +1,6 @@
 // Tables: one board for a group of friends. Whoever opens it plays first and shares the link; each
-// player who sits plays the same board once, with the others' games running beside them as ghosts.
+// player who sits plays the same board as many times as they like, with the others' best games
+// running beside them as ghosts. Each try counts, and the table shows how many it took.
 // The tables I've played are kept on the phone.
 import { DEFAULT_CONFIG } from '../../engine/config';
 import type { Move } from '../../engine/types';
@@ -11,16 +12,29 @@ import { UI } from '../uiConfig';
 import { decodeMoves, encodeMoves } from './codec';
 import { replaySteps, type Ghost } from './ghosts';
 
+/** How a player is doing at a table. */
+export interface SeatStats {
+  readonly attempts: number;
+  /** A try is being played right now. */
+  readonly playing: boolean;
+  /** The try that first beat the host, and the time played up to then; null if not yet. */
+  readonly beatAttempt: number | null;
+  readonly beatMs: number | null;
+}
+
 export interface LoadedTable {
   readonly code: string;
   readonly seed: number;
+  readonly hostId: string;
   readonly hostName: string;
   /** Made with other scoring rules: its games can't be replayed any more. */
   readonly old: boolean;
-  /** Everyone who has played it, best first. */
+  /** Everyone's best game, best first. */
   readonly ghosts: readonly Ghost[];
-  /** Seats taken by games still being played (`playing`) or left halfway. */
-  readonly waiting: readonly { readonly playerId: string; readonly name: string; readonly playing: boolean }[];
+  /** Who sat but hasn't finished a game yet (playing it, or left it halfway). */
+  readonly waiting: readonly { readonly playerId: string; readonly name: string }[];
+  /** Everyone's tries, by player. */
+  readonly stats: Readonly<Record<string, SeatStats>>;
 }
 
 /** The table, or null if there's no such table. Seats whose moves don't make their score are left out. */
@@ -31,9 +45,16 @@ export async function loadTable(code: string): Promise<LoadedTable | null> {
   const old = table.rules !== LEADERBOARD.rankingId;
   const ghosts: Ghost[] = [];
   const waiting: LoadedTable['waiting'][number][] = [];
+  const stats: Record<string, SeatStats> = {};
   for (const seat of seats) {
+    stats[seat.playerId] = {
+      attempts: seat.attempts,
+      playing: seat.openSince !== null && Date.now() - seat.openSince < UI.tables.playingMs,
+      beatAttempt: seat.beatAttempt,
+      beatMs: seat.beatMs,
+    };
     if (seat.score === null || seat.moves === null) {
-      waiting.push({ playerId: seat.playerId, name: seat.name, playing: Date.now() - seat.sitAt < UI.tables.playingMs });
+      waiting.push({ playerId: seat.playerId, name: seat.name });
       continue;
     }
     const moves = old ? null : decodeMoves(seat.moves, DEFAULT_CONFIG.cols);
@@ -41,15 +62,15 @@ export async function loadTable(code: string): Promise<LoadedTable | null> {
     const { score, steps } = replaySteps(table.seed, moves);
     if (score === seat.score) ghosts.push({ playerId: seat.playerId, name: seat.name, score, steps });
   }
-  return { code: table.code, seed: table.seed, hostName: table.hostName, old, ghosts, waiting };
+  return { code: table.code, seed: table.seed, hostId: table.hostId, hostName: table.hostName, old, ghosts, waiting, stats };
 }
 
-/** Takes my seat as the game that counts starts: from then on, leaving halfway spends the try. */
+/** Starts a try: it counts from now on, even if the game is left halfway. Returns the key that sends it. */
 export function sitDown(code: string, player: Player): Promise<string> {
   return sit(code, player);
 }
 
-/** Sends a finished game: a new table opens with it; otherwise it fills in the seat taken at the start. */
+/** Sends a finished game: a new table opens with it; otherwise it goes to the try started with `seatKey`. */
 export async function publishGame(o: { code: string; seed: number; isNew: boolean; seatKey: string | null; player: Player; score: number; moves: readonly Move[] }): Promise<void> {
   const game = { score: o.score, moves: encodeMoves(o.moves, DEFAULT_CONFIG.cols) };
   if (o.isNew) {
@@ -84,7 +105,7 @@ export function clearTableLink(): void {
 export interface MyTable {
   readonly code: string;
   readonly host: string;
-  /** My score there; null while I haven't played it. */
+  /** My best score there; null while I haven't finished a game. */
   readonly score: number | null;
   readonly at: number;
 }

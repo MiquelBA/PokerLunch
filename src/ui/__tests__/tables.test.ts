@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_CONFIG } from '../../engine/config';
 import { applyMove, findHands, newGame, tick } from '../../engine/game';
 import type { GameState } from '../../engine/types';
+import { fetchTable } from '../../leaderboard/tables';
 import { decodeMoves, encodeMoves } from '../tables/codec';
 import { ghostScoreAt, replaySteps, stepsBy, type Ghost } from '../tables/ghosts';
 
@@ -57,5 +58,25 @@ describe('tables', () => {
     expect(ghostScoreAt(ghost, steps[2].atMs)).toBe(steps[2].score);
     expect(ghostScoreAt(ghost, steps[3].atMs - 1)).toBe(steps[2].score);
     expect(ghostScoreAt(ghost, 1e9)).toBe(score);
+  });
+});
+
+describe('a table from the server', () => {
+  it('reads each seat\'s tries, the one being played and the try that beat the host', async () => {
+    const rows: Record<string, unknown[]> = {
+      poker_tables: [{ code: 'abcd2345', rules: 'poker-v3', seed: '777', host_id: 'h', host_name: 'Anna' }],
+      poker_seats: [
+        { player_id: 'p', name: 'Pau', score: 2000, moves: 'x', attempts: 5, attempt_at: '2026-10-23T10:00:00Z', attempt_open: false, beat_attempt: 4, beat_ms: '420000' },
+        { player_id: 'j', name: 'Joan', score: null, moves: null, attempts: 2, attempt_at: '2026-10-23T11:00:00Z', attempt_open: true, beat_attempt: null, beat_ms: null },
+      ],
+    };
+    const fetcher = (async (url: string) => {
+      const table = Object.keys(rows).find((k) => url.includes(`/rest/v1/${k}?`))!;
+      return new Response(JSON.stringify(rows[table]), { status: 200 });
+    }) as unknown as typeof fetch;
+    const found = await fetchTable('abcd2345', fetcher);
+    expect(found?.table.seed).toBe(777);
+    expect(found?.seats[0]).toMatchObject({ attempts: 5, openSince: null, beatAttempt: 4, beatMs: 420000 });
+    expect(found?.seats[1]).toMatchObject({ attempts: 2, openSince: Date.parse('2026-10-23T11:00:00Z'), beatAttempt: null });
   });
 });
