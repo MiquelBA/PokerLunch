@@ -200,6 +200,8 @@ let sfx: GainNode | null = null;
 let noise: AudioBuffer | null = null;
 /** A looping silent <audio>: on iPhone it puts the page in the "media" audio session, so Web Audio is heard. */
 let keepAlive: HTMLAudioElement | null = null;
+/** Whether it is really playing: `paused` turns false as soon as play() is asked, before iOS refuses it. */
+let keepAlivePlaying = false;
 
 type AudioWindow = Window & { webkitAudioContext?: typeof AudioContext };
 
@@ -241,17 +243,22 @@ function playKeepAlive(): void {
     keepAlive.preload = 'auto';
     keepAlive.loop = true;
     keepAlive.src = URL.createObjectURL(silentWav());
+    keepAlive.addEventListener('playing', () => { keepAlivePlaying = true; });
+    keepAlive.addEventListener('pause', () => { keepAlivePlaying = false; });
     // Silent audio left playing in the background would show up in the phone's media controls.
     document.addEventListener('visibilitychange', () => { if (document.hidden) keepAlive?.pause(); });
   }
-  if (keepAlive.paused) keepAlive.play()?.catch(() => { /* not inside a gesture yet: the next one retries */ });
+  // Asked again until it really plays: a try outside a real tap (a pointerdown, a swipe) is refused
+  // late, and checking `paused` then would skip the tap that could start it.
+  if (!keepAlivePlaying) keepAlive.play()?.catch(() => { keepAlivePlaying = false; });
 }
 
 /**
  * Call from a user gesture: creates or wakes the audio context. Safe to call often; every touch
  * calls it, so a context that iOS suspended or interrupted (a call, another app) comes back.
+ * `create` false (a pointerdown, which iOS doesn't count as a tap) only wakes a context that exists.
  */
-export function unlockAudio(): void {
+export function unlockAudio(create = true): void {
   try {
     // iPhone: play like a media app, so the silent switch doesn't mute the game (Safari 17+).
     const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
@@ -259,6 +266,7 @@ export function unlockAudio(): void {
     if (typeof document !== 'undefined' && !document.hidden) playKeepAlive();
     // A closed context never plays again: start over with a new one.
     if (context?.state === 'closed') context = null;
+    if (!context && !create) return;
     context ??= createContext();
     if (!context) return;
     if (context.state !== 'running') context.resume().catch(() => { /* retried on the next touch */ });

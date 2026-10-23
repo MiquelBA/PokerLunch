@@ -138,9 +138,10 @@ export function App() {
 
   // Audio can only start inside a touch.
   useEffect(() => {
-    const unlock = () => unlockAudio();
-    for (const ev of ['pointerdown', 'touchend', 'click', 'keydown']) window.addEventListener(ev, unlock, { passive: true });
-    return () => { for (const ev of ['pointerdown', 'touchend', 'click', 'keydown']) window.removeEventListener(ev, unlock); };
+    const unlock = (e: Event) => unlockAudio(e.type !== 'pointerdown');
+    // Capture: a sheet that stops a click from bubbling doesn't stop the unlock.
+    for (const ev of ['pointerdown', 'touchend', 'click', 'keydown']) window.addEventListener(ev, unlock, { passive: true, capture: true });
+    return () => { for (const ev of ['pointerdown', 'touchend', 'click', 'keydown']) window.removeEventListener(ev, unlock, { capture: true }); };
   }, []);
 
   const begin = (m: Mode) => {
