@@ -64,8 +64,9 @@ Calibratge (`npm run sim -- 12 30`, 30 jugades): un bot que mira la varietat fa 
 - Les cartes es reparteixen cap per avall durant el compte enrere i es giren totes alhora al «Som-hi!».
 - **Pista**: després de 20 s sense jugar, s'il·luminen les cartes d'una mà possible (en les 3 primeres mans d'un jugador nou, un dit la dibuixa).
 - 2 minuts, amb compte enrere. El rellotge s'atura mentre es reprodueixen les animacions i quan l'app passa a segon pla.
-- **Repte diari**: la mateixa llavor per a tothom cada dia (hora de Barcelona); només compta el primer intent, després és pràctica. Ratxa de dies seguits.
-- **Classificació** compartida (Supabase): una general (partides lliures, rànquing `poker-v3`) i una per a cada repte diari (només el primer intent).
+- **Taules**: qui munta una taula juga un tauler nou i comparteix l'enllaç (`#t=<codi>`). Tothom qui hi seu juga les mateixes cartes en el mateix ordre (la mateixa llavor) i, mentre juga, veu la cursa amb la puntuació que portaven els altres en aquell mateix moment de la partida (els *fantasmes*) i un avís quan algú hi va fer un full o més. Cada jugador hi pot jugar tantes vegades com vulgui («Torna-hi») i compta la seva millor partida. Cada intent es compta al servidor quan comença, de manera que una partida deixada a mitges també compta. La taula mostra els intents de cadascú i, per a qui no l'ha muntada, l'intent en què va superar l'amfitrió i el temps jugat fins llavors. Una partida lliure també es pot convertir en taula des de la pantalla final.
+- Cada seient guarda la millor partida (puntuació i jugades, amb el camí i el moment en ms sencers). El joc torna a jugar les jugades per dibuixar els fantasmes, inclosa la teva millor partida, i descarta un seient si no donen la seva puntuació.
+- **Classificació** compartida (Supabase): una general (partides lliures, rànquing `poker-v3`). Cada taula té la seva.
 
 ## 6. Dades del simulador (`npm run sim -- 12 30`)
 Tauler de 5×5 amb 3 comodins: unes 65 mans jugables de mitjana. Percentatge de taulers on hi ha cada mà: doble parella 99%, color 90%, full 85%, escala 85%, trio 68%, pòquer 22%, escala de color 8%, repòquer 6%, escala reial 1%. Un bot que juga la mà que més puntua tenint en compte la varietat fa unes 7,5 ratxes de varietat per partida.

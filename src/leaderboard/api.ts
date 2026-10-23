@@ -7,12 +7,18 @@ export interface RankedScore {
   readonly score: number;
 }
 
-type Fetch = typeof fetch;
+export type Fetch = typeof fetch;
 
 /** Thrown when the server answered but refused (e.g. a banned name or too many scores). */
-export class RejectedError extends Error {}
+export class RejectedError extends Error {
+  readonly status?: number;
+  constructor(message: string, status?: number) {
+    super(message);
+    this.status = status;
+  }
+}
 
-async function request(path: string, init: RequestInit = {}, fetcher: Fetch = fetch): Promise<Response> {
+export async function request(path: string, init: RequestInit = {}, fetcher: Fetch = fetch): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), LEADERBOARD.timeoutMs);
   try {
@@ -26,7 +32,7 @@ async function request(path: string, init: RequestInit = {}, fetcher: Fetch = fe
         ...init.headers,
       },
     });
-    if (!response.ok) throw response.status >= 400 && response.status < 500 ? new RejectedError(`HTTP ${response.status}`) : new Error(`HTTP ${response.status}`);
+    if (!response.ok) throw response.status >= 400 && response.status < 500 ? new RejectedError(`HTTP ${response.status}`, response.status) : new Error(`HTTP ${response.status}`);
     return response;
   } finally {
     clearTimeout(timer);
@@ -54,14 +60,6 @@ export async function fetchRank(ranking: string, score: number, fetcher?: Fetch)
   const response = await request(query, { method: 'HEAD', headers: { Prefer: 'count=exact' } }, fetcher);
   const total = Number(response.headers.get('Content-Range')?.split('/')[1]);
   return (Number.isFinite(total) ? total : 0) + 1;
-}
-
-/** How many players are in a ranking. */
-export async function fetchCount(ranking: string, fetcher?: Fetch): Promise<number> {
-  const query = `leaderboard?select=player_id&ranking=eq.${encodeURIComponent(ranking)}`;
-  const response = await request(query, { method: 'HEAD', headers: { Prefer: 'count=exact' } }, fetcher);
-  const total = Number(response.headers.get('Content-Range')?.split('/')[1]);
-  return Number.isFinite(total) ? total : 0;
 }
 
 /** Adds a row to a write-only table (anonymous stats or feedback). */

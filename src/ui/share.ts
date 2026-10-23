@@ -1,4 +1,4 @@
-// "Challenge a friend": the phone's share menu when there is one, WhatsApp otherwise.
+// Sharing (the champion's card, a table's link): the phone's share menu when there is one, WhatsApp otherwise.
 import { STRINGS } from './strings';
 
 /** The game's public address: the folder this page is served from, without ?options. */
@@ -6,9 +6,8 @@ export function gameUrl(): string {
   return new URL('./', window.location.href).href;
 }
 
-/** Shares a text with the game's address after it; resolves true if something was shared (or opened). */
-export async function shareText(text: string): Promise<boolean> {
-  const url = gameUrl();
+/** Shares a text with an address after it (the game's, by default); resolves true if something was shared (or opened). */
+export async function shareText(text: string, url: string = gameUrl()): Promise<boolean> {
   if (navigator.share) {
     try {
       await navigator.share({ title: STRINGS.title, text, url });

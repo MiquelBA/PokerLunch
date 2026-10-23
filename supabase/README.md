@@ -1,9 +1,9 @@
 # Classificació (Supabase)
 
-Poker Lunch comparteix el projecte de Supabase d'Orca Lunch (`gjfkfmqweimyjvapdoof`). Les taules, les polítiques i els límits ja hi són (els SQL són al repositori d'Orca Lunch: `leaderboard.sql`, `protect-and-stats.sql`, `daily.sql`), així que no cal executar res.
+Poker Lunch comparteix el projecte de Supabase d'Orca Lunch (`gjfkfmqweimyjvapdoof`). Les taules, les polítiques i els límits de la classificació ja hi són (els SQL són al repositori d'Orca Lunch: `leaderboard.sql`, `protect-and-stats.sql`, `daily.sql`). Les taules del Poker (`poker_tables` i `poker_seats`) són a [`tables.sql`](tables.sql): s'ha d'executar un cop al SQL editor de Supabase.
 
 - Rànquing general: `poker-v3`. Canvia la versió a `src/leaderboard/config.ts` quan canviï la puntuació, per començar una classificació nova.
-- Repte del dia: `poker-v3-d20261021`. Una sola puntuació per jugador i només el dia del repte o l'endemà (ho imposa la base de dades).
+- Taules: `poker_tables` (codi, llavor, versió de regles i qui l'ha muntada) i `poker_seats` (un seient per jugador i taula, amb la millor partida, els intents, l'intent en què va superar l'amfitrió i el temps jugat). El joc només hi llegeix: s'escriu amb tres funcions, `poker_open_table` (la taula nova amb la partida de qui la munta), `poker_sit` (comença un intent: el compta i torna una clau secreta nova) i `poker_finish` (amb aquesta clau, envia la partida d'aquell intent un sol cop i dins d'una hora; el seient es queda la millor). `tables.sql` es pot tornar a executar: si les taules ja hi són, només hi afegeix el que falta. Límits: 30 taules noves i 150 seients per jugador i dia, 1.000 intents per seient i els mateixos noms prohibits. Moderació: `hidden = true`.
 - Límits de la base de dades: noms de la llista `banned-words.txt`, puntuacions d'1 a 400.000, 100 s entre dues puntuacions d'un mateix jugador i 60 al dia.
 - Moderació: posa `hidden = true` a la fila (Table editor) per treure-la de la classificació.
 

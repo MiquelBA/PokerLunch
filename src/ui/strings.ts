@@ -3,11 +3,6 @@ import type { BlastKind, HandType, PowerKind } from '../engine/types';
 
 const n = (v: number) => v.toLocaleString('ca');
 
-/** 1r, 2n, 3r, 4t, 5è… */
-function ordinal(v: number): string {
-  return `${v}${({ 1: 'r', 2: 'n', 3: 'r', 4: 't' } as Record<number, string>)[v] ?? 'è'}`;
-}
-
 export const HAND_NAMES: Readonly<Record<HandType, string>> = {
   trips: 'Trio',
   twoPair: 'Doble parella',
@@ -81,15 +76,9 @@ export const STRINGS = {
   tagline: 'Traça mans de pòquer amb el dit',
   play: 'Juga',
   playAgain: 'Torna a jugar',
-  daily: 'Repte del dia',
-  dailyPlayed: 'Repte fet',
-  dailyPractice: 'Practica el repte',
-  dailyInfo: 'El mateix tauler per a tothom. Només compta el primer intent.',
-  streak: (d: number) => (d === 1 ? '1 dia seguit' : `${d} dies seguits`),
-  nextDaily: (h: number, m: number) => `Nou repte d’aquí a ${h} h ${m} min`,
   howTo: 'Com es juga',
   /** The small buttons at the bottom of the start screen. */
-  menu: { more: 'Més opcions', help: 'Com es juga', sound: 'So', ranking: 'Rànquing', feedback: 'Opina', install: 'Instal·la' },
+  menu: { more: 'Més opcions', help: 'Com es juga', sound: 'So', ranking: 'Rànquing', tables: 'Taules', feedback: 'Opina', install: 'Instal·la' },
   score: 'Punts',
   best: 'Rècord',
   time: 'Temps',
@@ -101,7 +90,7 @@ export const STRINGS = {
   quitAsk: {
     title: 'Vols sortir?',
     body: 'Aquesta puntuació no es guardarà.',
-    daily: 'Aquesta puntuació no es guardarà i el repte d’avui ja compta com a fet.',
+    table: 'Aquest intent comptarà igualment a la taula.',
     tour: 'No guanyaràs cap estrella en aquest nivell.',
     yes: 'Sí, surt',
     no: 'Continua jugant',
@@ -135,18 +124,6 @@ export const STRINGS = {
   bestHand: 'Millor mà',
   hands: 'Mans',
   noHands: 'Cap mà',
-  share: {
-    button: 'Repta un amic',
-    /** Free game: an invitation. Daily challenge: spoiler-free result with the place. */
-    text: (o: { score: number; best: string; daily: string | null; rank: number | null; total: number | null }) => o.daily
-      ? [
-        `🃏 Poker Lunch · Repte ${o.daily}`,
-        o.rank && o.total ? `${n(o.score)} punts · ${ordinal(o.rank)} de ${o.total}` : `${n(o.score)} punts`,
-        o.best ? `Millor mà: ${o.best}` : '',
-        'Em superes?',
-      ].filter(Boolean).join('\n')
-      : `He fet ${n(o.score)} punts a Poker Lunch 🃏${o.best ? ` amb ${o.best.toLowerCase()} inclòs` : ''}. Em superes?`,
-  },
   rating: {
     ask: 'T’ha agradat?',
     up: 'M’ha agradat',
@@ -175,8 +152,6 @@ export const STRINGS = {
   leaderboard: {
     title: 'Classificació',
     open: 'Classificació',
-    tabGeneral: 'General',
-    tabToday: 'Repte d’avui',
     askName: 'Posa el teu nom per sortir a la classificació',
     changeName: 'Canvia el teu nom',
     namePlaceholder: 'El teu nom',
@@ -190,7 +165,6 @@ export const STRINGS = {
     badName: 'Aquest nom no es pot fer servir. Prova amb un altre.',
     refused: 'Aquesta puntuació no s’ha pogut afegir a la classificació.',
     rank: (p: number) => `Aquesta partida queda en la posició ${p}`,
-    dailyRank: (p: number, total: number) => `Ets el ${ordinal(p)} de ${total}`,
   },
   help: {
     title: 'Com es juga',
