@@ -119,6 +119,17 @@ export function loadMyTables(): MyTable[] {
   }
 }
 
+/** Takes a table off my list (only on this phone: the table stays for everyone else). */
+export function forgetTable(code: string): MyTable[] {
+  const all = loadMyTables().filter((t) => t.code !== code);
+  try {
+    localStorage.setItem(UI.tables.key, JSON.stringify(all));
+  } catch {
+    // Storage unavailable: nothing to take off.
+  }
+  return all;
+}
+
 /** Puts a table first on the list (a score already there is kept unless a new one comes). */
 export function rememberTable(entry: Omit<MyTable, 'at' | 'score'> & { score?: number | null }): MyTable[] {
   const list = loadMyTables();
