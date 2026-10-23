@@ -22,6 +22,7 @@ import { shareText } from './share';
 import { TOURS } from '../engine/tour/levels';
 import { allLevels, currentLevelId, isUnlocked, newlyOpened, recordResult, starsMissing, totalStars, type TourProgress } from '../engine/tour/progress';
 import { playRun, startRun, tickRun, type TourRun } from '../engine/tour/run';
+import { playSeed } from '../engine/tour/setup';
 import type { Level, Tour } from '../engine/tour/schema';
 import { loadTourProgress, saveTourProgress } from './tour/progressStore';
 import { TOUR_STRINGS } from './tour/strings';
@@ -152,7 +153,7 @@ export function App() {
   // ------------------------------------------------------------ Poker Tour
   const tourDriver = (level: Level): GameDriver => ({
     init: () => {
-      const run = startRun(level);
+      const run = startRun(level, playSeed(level));
       tourRunRef.current = run;
       setTourRun(run);
       return run.game;

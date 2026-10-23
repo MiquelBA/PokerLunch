@@ -60,7 +60,7 @@ export interface Level {
   readonly goals: readonly Goal[];
   /** Scores for the second and third stars. */
   readonly stars: readonly [number, number];
-  /** The random cards: the same seed deals the same level for everyone. */
+  /** The validator's and the simulator's cards. The game deals a fresh seed on every play (playSeed). */
   readonly seed: number;
   /** One line shown before the level starts. */
   readonly intro?: string;
