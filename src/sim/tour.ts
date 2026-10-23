@@ -1,7 +1,7 @@
 // Poker Tour calibration: plays every level many times with a goal-minded bot (with a little
 // randomness, so runs differ) and reports how often it wins, the moves it needs and its scores.
 // Star scores are set from these numbers: 2★ near the median win, 3★ near the best 15%.
-// npm run sim:tour -- [runs] [levelIdFilter]
+// npm run sim:tour -- [runs] [levelIdFilter] [--random: a fresh seed per run, as the game deals]
 import { areNeighbours, cellAt } from '../engine/board';
 import { findHands, handPoints, pathCards, type FoundHand } from '../engine/game';
 import { handStrength } from '../engine/hands';
@@ -9,6 +9,7 @@ import { nextRandom } from '../engine/rng';
 import { TOURS } from '../engine/tour/levels';
 import { playRun, progress, startRun, tickRun, type TourRun } from '../engine/tour/run';
 import type { Level } from '../engine/tour/schema';
+import { playSeed } from '../engine/tour/setup';
 
 const runs = Number(process.argv[2] ?? 40);
 const filter = process.argv[3] && !process.argv[3].startsWith('--') ? process.argv[3] : '';
@@ -38,9 +39,12 @@ function value(run: TourRun, h: FoundHand): number {
   return v;
 }
 
+const randomSeeds = process.argv.includes('--random');
+
 function playLevel(level: Level, salt: number) {
-  let run = startRun(level);
   let rng = (salt * 2654435761) >>> 0;
+  const random = () => { let r: number; [r, rng] = nextRandom(rng); return r; };
+  let run = startRun(level, randomSeeds ? playSeed(level, random) : level.seed);
   while (run.status === 'playing') {
     if (run.game.config.mode === 'time') {
       run = tickRun(run, THINK_MS).run;

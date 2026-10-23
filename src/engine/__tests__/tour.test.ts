@@ -4,7 +4,9 @@ import { cardsOf } from '../board';
 import { findHands } from '../game';
 import { formatCard } from '../notation';
 import type { Level } from '../tour/schema';
-import { levelConfig, newLevelGame } from '../tour/setup';
+import { levelConfig, newLevelGame, playSeed } from '../tour/setup';
+import { countHands } from '../game';
+import { TOURS } from '../tour/levels';
 import { leftover, playRun, progress, startRun, starsFor } from '../tour/run';
 import { validateLevel } from '../tour/validate';
 
@@ -38,6 +40,31 @@ describe('level setup', () => {
     expect(a.board[2][2]?.block).toBe(1);
     expect(a.board[3][1]?.bomb).toBe(true);
     expect(cardsOf(a.board).length).toBe(25);
+  });
+
+  it('deals other cards with another seed, around the same layout and fixed cards', () => {
+    const a = newLevelGame(base, 1);
+    const b = newLevelGame(base, 2);
+    expect(a.board).not.toEqual(b.board);
+    expect(formatCard(b.board[0][0]!)).toBe('AS');
+    expect(b.board[1][1]?.ice).toBe(1);
+    expect(b.board[2][2]?.block).toBe(1);
+    expect(b.board[3][1]?.bomb).toBe(true);
+  });
+
+  it('picks a fresh seed with enough hands for every level', () => {
+    let x = 0;
+    const random = () => (x = (x * 9301 + 49297) % 233280) / 233280;
+    for (const level of TOURS.flatMap((t) => t.levels)) {
+      const seeds = new Set<number>();
+      for (let i = 0; i < 5; i++) {
+        const seed = playSeed(level, random);
+        seeds.add(seed);
+        const config = levelConfig(level);
+        expect(countHands(newLevelGame(level, seed).board, config, config.minValidMoves)).toBeGreaterThanOrEqual(config.minValidMoves);
+      }
+      expect(seeds.size).toBeGreaterThan(1);
+    }
   });
 });
 

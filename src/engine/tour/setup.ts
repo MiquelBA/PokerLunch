@@ -1,8 +1,8 @@
 // A level's game: its rules as a GameConfig variant, and its starting board (layout placed over a
-// board dealt from the level's seed).
+// board dealt from a seed: the level's own, or a fresh one on every play so boards can't be learned).
 import { mutableCopy } from '../board';
 import { DEFAULT_CONFIG, makeConfig } from '../config';
-import { newGame } from '../game';
+import { countHands, newGame } from '../game';
 import { parseCard } from '../notation';
 import { HAND_TYPES, type Card, type Cell, type GameConfig, type GameState, type HandDef, type HandType, type Pos } from '../types';
 import type { Level } from './schema';
@@ -58,10 +58,10 @@ function clean(c: Card): Card {
   return Object.fromEntries(Object.entries(c).filter(([, v]) => v !== undefined)) as unknown as Card;
 }
 
-/** The level's starting game: same seed, same board, for everyone. */
-export function newLevelGame(level: Level): GameState {
+/** The level's starting game: same seed, same board. The layout and fixed cards never change. */
+export function newLevelGame(level: Level, seed = level.seed): GameState {
   const config = levelConfig(level);
-  const dealt = newGame({ seed: level.seed, config });
+  const dealt = newGame({ seed, config });
   const board: Cell[][] = mutableCopy(dealt.board);
   board.forEach((row, r) => row.forEach((cell, c) => {
     let card = cell!;
@@ -72,5 +72,18 @@ export function newLevelGame(level: Level): GameState {
   }));
   // Refills come from a second shoe, so the first new cards don't repeat the starting board. The
   // board is not reshuffled, so fixed cards stay put: the validator checks it has enough hands.
-  return newGame({ seed: level.seed * 31 + 7, config, board });
+  return newGame({ seed: seed * 31 + 7, config, board });
+}
+
+/**
+ * A fresh seed for one play of the level, so replays deal other cards around the same layout. Like
+ * the validator, it wants a starting board with enough hands; if none turns up, the level's own.
+ */
+export function playSeed(level: Level, random: () => number = Math.random): number {
+  const config = levelConfig(level);
+  for (let i = 0; i < 20; i++) {
+    const seed = Math.floor(random() * 2 ** 31);
+    if (countHands(newLevelGame(level, seed).board, config, config.minValidMoves) >= config.minValidMoves) return seed;
+  }
+  return level.seed;
 }

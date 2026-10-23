@@ -42,8 +42,9 @@ export interface RushStep {
   readonly board: Board;
 }
 
-export function startRun(level: Level): TourRun {
-  const game = newLevelGame(level);
+/** Starts a level, dealt from `seed` (the level's own unless given). */
+export function startRun(level: Level, seed = level.seed): TourRun {
+  const game = newLevelGame(level, seed);
   return { level, start: game, game, counters: NO_COUNTERS, status: 'playing', rushPoints: 0, stars: 0 };
 }
 
