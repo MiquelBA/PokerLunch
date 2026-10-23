@@ -13,7 +13,7 @@ import { HAND_NAMES, STRINGS } from '../strings';
 import { HAND_TIER, UI } from '../uiConfig';
 import { ghostScoreAt, stepsBy, type Ghost } from './ghosts';
 import { TABLE_STRINGS as T } from './strings';
-import { loadMyTables, loadTable, publishSeat, rememberTable, startedTable, tableLink, type LoadedTable } from './table';
+import { loadMyTables, loadTable, publishGame, rememberTable, sitDown, tableLink, type LoadedTable } from './table';
 
 const fmt = (v: number) => v.toLocaleString('ca');
 
@@ -23,8 +23,10 @@ export interface TableGame {
   readonly seed: number;
   readonly host: string | null;
   readonly ghosts: readonly Ghost[];
-  /** The player's first game at this table: it takes a seat. Later ones are practice. */
+  /** The player's first game at this table: it fills in a seat. Later ones are practice. */
   readonly counts: boolean;
+  /** The seat taken at the start (a new table has none: it opens with the host's game). */
+  readonly seatKey: string | null;
   /** Nobody has sat yet: the table is opened when this game is sent. */
   readonly isNew: boolean;
 }
@@ -37,8 +39,10 @@ export function inviteToTable(code: string, host: string, ghosts: readonly Ghost
 
 // ---------------------------------------------------------------- seats
 
-function Seats({ ghosts, me, practice }: { ghosts: readonly Ghost[]; me: string; practice?: number }) {
-  if (!ghosts.length && practice === undefined) return <p className="lb-note">{T.empty}</p>;
+function Seats({ ghosts, waiting = [], me, practice }: {
+  ghosts: readonly Ghost[]; waiting?: LoadedTable['waiting']; me: string; practice?: number;
+}) {
+  if (!ghosts.length && !waiting.length && practice === undefined) return <p className="lb-note">{T.empty}</p>;
   return (
     <ol className="lb-list table-seats">
       {ghosts.map((g, i) => (
@@ -46,6 +50,13 @@ function Seats({ ghosts, me, practice }: { ghosts: readonly Ghost[]; me: string;
           <span className="lb-pos">{i + 1}</span>
           <span className="lb-who">{g.name}</span>
           <span className="lb-score">{fmt(g.score)}</span>
+        </li>
+      ))}
+      {waiting.map((w) => (
+        <li key={w.playerId} className={`waiting ${w.playerId === me ? 'me' : ''}`}>
+          <span className="lb-pos">·</span>
+          <span className="lb-who">{w.name}</span>
+          <span className="lb-score">{w.playing && w.playerId !== me ? T.playing : T.halfway}</span>
         </li>
       ))}
       {practice !== undefined && (
@@ -96,12 +107,28 @@ type LoadStatus = 'loading' | 'ready' | 'missing' | 'error';
 /** What a table's link opens: who's there and how they did, and a seat to play. */
 export function TableLobby({ code, onPlay, onClose }: {
   code: string;
-  onPlay: (table: LoadedTable, counts: boolean) => void;
+  /** With the seat's key for the game that counts; null for practice. */
+  onPlay: (table: LoadedTable, seatKey: string | null) => void;
   onClose: () => void;
 }) {
   const [status, setStatus] = useState<LoadStatus>('loading');
   const [table, setTable] = useState<LoadedTable | null>(null);
+  // Sitting down: a name first if there's none, then the seat (it's spent from now on).
+  const [sitting, setSitting] = useState<'idle' | 'name' | 'busy' | 'failed' | 'refused'>('idle');
   const me = deviceId();
+  const takeSeat = async (t: LoadedTable, player: Player | null) => {
+    if (!player) { setSitting('name'); return; }
+    setSitting('busy');
+    try {
+      const key = await sitDown(t.code, player);
+      rememberTable({ code: t.code, host: t.hostName });
+      onPlay(t, key);
+    } catch (error) {
+      // Already sitting there (another tab, another try): show the table as it is now.
+      if (error instanceof RejectedError && error.status === 409) { setSitting('idle'); load(); return; }
+      setSitting(error instanceof RejectedError ? 'refused' : 'failed');
+    }
+  };
   const load = () => {
     setStatus('loading');
     loadTable(code).then((t) => {
@@ -112,6 +139,7 @@ export function TableLobby({ code, onPlay, onClose }: {
   };
   useEffect(load, [code]); // eslint-disable-line react-hooks/exhaustive-deps
   const mine = table?.ghosts.find((g) => g.playerId === me);
+  const left = table?.waiting.some((w) => w.playerId === me);
   return (
     <div className="overlay dim">
       <div className="sheet table-lobby" role="dialog" aria-modal="true" aria-label={table ? T.hostedBy(table.hostName) : T.loading}>
@@ -126,21 +154,31 @@ export function TableLobby({ code, onPlay, onClose }: {
             {table.old ? <p>{T.old}</p> : (
               <>
                 <p className="table-lead">{T.lead}</p>
-                <p className="table-count">{T.players(table.ghosts.length)}</p>
-                <Seats ghosts={table.ghosts} me={me} />
+                <p className="table-count">{T.players(table.ghosts.length + table.waiting.length)}</p>
+                <Seats ghosts={table.ghosts} waiting={table.waiting} me={me} />
                 {mine ? (
                   <>
                     <p className="lb-rank">{T.played(mine.score)}</p>
                     <button className="btn share" type="button" onClick={() => inviteToTable(table.code, table.hostName, table.ghosts, mine.score)}>{T.inviteMore}</button>
-                    <button className="btn primary" type="button" onClick={() => onPlay(table, false)}>{T.practice}</button>
+                    <button className="btn primary" type="button" onClick={() => onPlay(table, null)}>{T.practice}</button>
                   </>
-                ) : startedTable(table.code) ? (
+                ) : left ? (
                   <>
                     <p className="lb-rank">{T.left}</p>
-                    <button className="btn primary" type="button" onClick={() => onPlay(table, false)}>{T.practice}</button>
+                    <button className="btn primary" type="button" onClick={() => onPlay(table, null)}>{T.practice}</button>
                   </>
                 ) : (
-                  <button className="btn primary big" type="button" onClick={() => onPlay(table, true)}>{T.sit}</button>
+                  <>
+                    {sitting === 'name' && <NameForm onSaved={(p) => void takeSeat(table, p)} />}
+                    {sitting === 'failed' && <p className="lb-note">{T.sitFailed}</p>}
+                    {sitting === 'refused' && <p className="lb-note">{T.sitRefused}</p>}
+                    {sitting !== 'name' && (
+                      <button className="btn primary big" type="button" disabled={sitting === 'busy'} onClick={() => void takeSeat(table, loadPlayer())}>
+                        {sitting === 'busy' ? T.sitting : T.sit}
+                      </button>
+                    )}
+                    <p className="table-once">{T.once}</p>
+                  </>
                 )}
               </>
             )}
@@ -225,7 +263,7 @@ export function TableResult({ table, score, moves, onAgain, onNew, onMenu }: {
       if (table.counts && player && !sent.current) {
         // Marked before sending, so a second call meanwhile can't send it twice.
         sent.current = true;
-        await publishSeat({ code: table.code, seed: table.seed, isNew: table.isNew, player, score, moves }).catch((error: unknown) => {
+        await publishGame({ code: table.code, seed: table.seed, isNew: table.isNew, seatKey: table.seatKey, player, score, moves }).catch((error: unknown) => {
           if (error instanceof RejectedError) { setStatus('refused'); return; }
           sent.current = false;
           throw error;
@@ -267,7 +305,7 @@ export function TableResult({ table, score, moves, onAgain, onNew, onMenu }: {
             {table.counts && place > 0 && (
               <p className="lb-rank">{ghosts.length === 1 ? T.alone : T.place(place, ghosts.length)}</p>
             )}
-            <Seats ghosts={ghosts} me={me} practice={table.counts ? undefined : score} />
+            <Seats ghosts={ghosts} waiting={loaded.waiting} me={me} practice={table.counts ? undefined : score} />
             <button className="btn primary big" type="button" onClick={() => inviteToTable(table.code, host, ghosts, score)}>
               {ghosts.length <= 1 ? T.invite : T.inviteMore}
             </button>

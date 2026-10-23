@@ -10,7 +10,13 @@ export interface RankedScore {
 export type Fetch = typeof fetch;
 
 /** Thrown when the server answered but refused (e.g. a banned name or too many scores). */
-export class RejectedError extends Error {}
+export class RejectedError extends Error {
+  readonly status?: number;
+  constructor(message: string, status?: number) {
+    super(message);
+    this.status = status;
+  }
+}
 
 export async function request(path: string, init: RequestInit = {}, fetcher: Fetch = fetch): Promise<Response> {
   const controller = new AbortController();
@@ -26,7 +32,7 @@ export async function request(path: string, init: RequestInit = {}, fetcher: Fet
         ...init.headers,
       },
     });
-    if (!response.ok) throw response.status >= 400 && response.status < 500 ? new RejectedError(`HTTP ${response.status}`) : new Error(`HTTP ${response.status}`);
+    if (!response.ok) throw response.status >= 400 && response.status < 500 ? new RejectedError(`HTTP ${response.status}`, response.status) : new Error(`HTTP ${response.status}`);
     return response;
   } finally {
     clearTimeout(timer);

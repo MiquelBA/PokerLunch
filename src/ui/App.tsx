@@ -28,7 +28,7 @@ import { Champion } from './tour/Champion';
 import { GoalsBar, isChampion, LevelIntro, levelNumber, TourMap, TourResult } from './tour/TourUI';
 import type { GameDriver } from './useGame';
 import { newTableCode } from '../leaderboard/tables';
-import { clearTableLink, readTableLink, rememberTable, type LoadedTable } from './tables/table';
+import { clearTableLink, readTableLink, type LoadedTable } from './tables/table';
 import { MyTablesSheet, TableLobby, TableRace, TableResult, type TableGame } from './tables/TableUI';
 import { TABLE_STRINGS } from './tables/strings';
 
@@ -160,9 +160,6 @@ export function App() {
     modeRef.current = m;
     game.setDriver(null);
     const t = m === 'table' ? tableRef.current : null;
-    // One try per table: the game that counts is marked as soon as it starts, so leaving it halfway
-    // doesn't give another go at the same cards (a new table has nothing to try again).
-    if (t?.counts && !t.isNew) rememberTable({ code: t.code, host: t.host ?? '', started: true });
     track('game_start', undefined, { mode: m, ...(t ? { table: t.code, counts: t.counts } : {}) });
     setMode(m);
     game.start(t ? t.seed : randomSeed());
@@ -171,23 +168,23 @@ export function App() {
   // ------------------------------------------------------------ Tables
   /** A new table: a fresh board, played first by whoever opens it. */
   const newTable = () => {
-    setTable({ code: newTableCode(), seed: randomSeed(), host: null, ghosts: [], counts: true, isNew: true });
+    setTable({ code: newTableCode(), seed: randomSeed(), host: null, ghosts: [], counts: true, seatKey: null, isNew: true });
     begin('table');
   };
-  const sitAt = (t: LoadedTable, counts: boolean) => {
+  const sitAt = (t: LoadedTable, seatKey: string | null) => {
     setLobbyCode(null);
-    setTable({ code: t.code, seed: t.seed, host: t.hostName, ghosts: t.ghosts, counts, isNew: false });
+    setTable({ code: t.code, seed: t.seed, host: t.hostName, ghosts: t.ghosts, counts: seatKey !== null, seatKey, isNew: false });
     begin('table');
   };
   /** The free game just played becomes a table: it takes the first seat and its link is shared. */
   const freeToTable = () => {
-    setTable({ code: newTableCode(), seed: state.seed, host: null, ghosts: [], counts: true, isNew: true });
+    setTable({ code: newTableCode(), seed: state.seed, host: null, ghosts: [], counts: true, seatKey: null, isNew: true });
     modeRef.current = 'table';
     setMode('table');
   };
   /** Playing a table again: practice, against everyone who sat (me included). */
   const tableAgain = (t: TableGame) => {
-    setTable({ ...t, counts: false, isNew: false });
+    setTable({ ...t, counts: false, seatKey: null, isNew: false });
     setLobbyCode(t.code);
     game.quit();
   };

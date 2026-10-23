@@ -5,7 +5,7 @@ import { DEFAULT_CONFIG } from '../../engine/config';
 import type { Move } from '../../engine/types';
 import { LEADERBOARD } from '../../leaderboard/config';
 import type { Player } from '../../leaderboard/player';
-import { fetchTable, openTable, takeSeat } from '../../leaderboard/tables';
+import { fetchTable, finishSeat, openTable, sit } from '../../leaderboard/tables';
 import { gameUrl } from '../share';
 import { UI } from '../uiConfig';
 import { decodeMoves, encodeMoves } from './codec';
@@ -17,8 +17,10 @@ export interface LoadedTable {
   readonly hostName: string;
   /** Made with other scoring rules: its games can't be replayed any more. */
   readonly old: boolean;
-  /** Everyone sitting at it, best first. */
+  /** Everyone who has played it, best first. */
   readonly ghosts: readonly Ghost[];
+  /** Seats taken by games still being played (`playing`) or left halfway. */
+  readonly waiting: readonly { readonly playerId: string; readonly name: string; readonly playing: boolean }[];
 }
 
 /** The table, or null if there's no such table. Seats whose moves don't make their score are left out. */
@@ -28,23 +30,33 @@ export async function loadTable(code: string): Promise<LoadedTable | null> {
   const { table, seats } = found;
   const old = table.rules !== LEADERBOARD.rankingId;
   const ghosts: Ghost[] = [];
-  if (!old) {
-    for (const seat of seats) {
-      const moves = decodeMoves(seat.moves, DEFAULT_CONFIG.cols);
-      if (!moves) continue;
-      const { score, steps } = replaySteps(table.seed, moves);
-      if (score === seat.score) ghosts.push({ playerId: seat.playerId, name: seat.name, score, steps });
+  const waiting: LoadedTable['waiting'][number][] = [];
+  for (const seat of seats) {
+    if (seat.score === null || seat.moves === null) {
+      waiting.push({ playerId: seat.playerId, name: seat.name, playing: Date.now() - seat.sitAt < UI.tables.playingMs });
+      continue;
     }
+    const moves = old ? null : decodeMoves(seat.moves, DEFAULT_CONFIG.cols);
+    if (!moves) continue;
+    const { score, steps } = replaySteps(table.seed, moves);
+    if (score === seat.score) ghosts.push({ playerId: seat.playerId, name: seat.name, score, steps });
   }
-  return { code: table.code, seed: table.seed, hostName: table.hostName, old, ghosts };
+  return { code: table.code, seed: table.seed, hostName: table.hostName, old, ghosts, waiting };
 }
 
-/** Sends a finished game to its table, opening the table first if it's new. */
-export async function publishSeat(o: { code: string; seed: number; isNew: boolean; player: Player; score: number; moves: readonly Move[] }): Promise<void> {
+/** Takes my seat as the game that counts starts: from then on, leaving halfway spends the try. */
+export function sitDown(code: string, player: Player): Promise<string> {
+  return sit(code, player);
+}
+
+/** Sends a finished game: a new table opens with it; otherwise it fills in the seat taken at the start. */
+export async function publishGame(o: { code: string; seed: number; isNew: boolean; seatKey: string | null; player: Player; score: number; moves: readonly Move[] }): Promise<void> {
+  const game = { score: o.score, moves: encodeMoves(o.moves, DEFAULT_CONFIG.cols) };
   if (o.isNew) {
-    await openTable({ code: o.code, rules: LEADERBOARD.rankingId, seed: o.seed, hostId: o.player.id, hostName: o.player.name });
+    await openTable({ code: o.code, rules: LEADERBOARD.rankingId, seed: o.seed, hostId: o.player.id, hostName: o.player.name }, game);
+  } else if (o.seatKey) {
+    await finishSeat(o.seatKey, game);
   }
-  await takeSeat(o.code, { playerId: o.player.id, name: o.player.name, score: o.score, moves: encodeMoves(o.moves, DEFAULT_CONFIG.cols) });
 }
 
 // ---------------------------------------------------------------- the link
@@ -74,14 +86,7 @@ export interface MyTable {
   readonly host: string;
   /** My score there; null while I haven't played it. */
   readonly score: number | null;
-  /** I started the game that counts: leaving it halfway doesn't give a second try. */
-  readonly started?: boolean;
   readonly at: number;
-}
-
-/** Whether I already started the game that counts at this table (on this phone). */
-export function startedTable(code: string): boolean {
-  return loadMyTables().some((t) => t.code === code && t.started);
 }
 
 export function loadMyTables(): MyTable[] {
@@ -93,17 +98,11 @@ export function loadMyTables(): MyTable[] {
   }
 }
 
-/** Puts a table first on the list (a score or a start already there is kept). */
+/** Puts a table first on the list (a score already there is kept unless a new one comes). */
 export function rememberTable(entry: Omit<MyTable, 'at' | 'score'> & { score?: number | null }): MyTable[] {
   const list = loadMyTables();
   const before = list.find((t) => t.code === entry.code);
-  const next: MyTable = {
-    code: entry.code,
-    host: entry.host,
-    score: entry.score ?? before?.score ?? null,
-    started: entry.started || before?.started || undefined,
-    at: Date.now(),
-  };
+  const next: MyTable = { code: entry.code, host: entry.host, score: entry.score ?? before?.score ?? null, at: Date.now() };
   const all = [next, ...list.filter((t) => t.code !== entry.code)].slice(0, UI.tables.keep);
   try {
     localStorage.setItem(UI.tables.key, JSON.stringify(all));

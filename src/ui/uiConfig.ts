@@ -61,7 +61,7 @@ export const UI = {
   soundKey: 'poker-lunch:sound',
   bestKey: 'poker-lunch:best',
   /** Tables: the list on the phone, how many the race strip shows, and the ghost's big-hand alerts. */
-  tables: { key: 'poker-lunch:tables', keep: 20, raceShown: 4, alertTier: 2, alertMs: 1800 },
+  tables: { key: 'poker-lunch:tables', keep: 20, raceShown: 4, alertTier: 2, alertMs: 1800, playingMs: 10 * 60_000 },
   helpSeenKey: 'poker-lunch:help-seen',
   guideKey: 'poker-lunch:guide-hands',
   varietyTipKey: 'poker-lunch:variety-tip',
