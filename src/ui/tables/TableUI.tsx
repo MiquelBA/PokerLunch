@@ -13,7 +13,7 @@ import { HAND_NAMES, STRINGS } from '../strings';
 import { HAND_TIER, UI } from '../uiConfig';
 import { ghostScoreAt, stepsBy, type Ghost } from './ghosts';
 import { TABLE_STRINGS as T } from './strings';
-import { loadMyTables, loadTable, publishSeat, rememberTable, tableLink, type LoadedTable } from './table';
+import { loadMyTables, loadTable, publishSeat, rememberTable, startedTable, tableLink, type LoadedTable } from './table';
 
 const fmt = (v: number) => v.toLocaleString('ca');
 
@@ -132,6 +132,11 @@ export function TableLobby({ code, onPlay, onClose }: {
                   <>
                     <p className="lb-rank">{T.played(mine.score)}</p>
                     <button className="btn share" type="button" onClick={() => inviteToTable(table.code, table.hostName, table.ghosts, mine.score)}>{T.inviteMore}</button>
+                    <button className="btn primary" type="button" onClick={() => onPlay(table, false)}>{T.practice}</button>
+                  </>
+                ) : startedTable(table.code) ? (
+                  <>
+                    <p className="lb-rank">{T.left}</p>
                     <button className="btn primary" type="button" onClick={() => onPlay(table, false)}>{T.practice}</button>
                   </>
                 ) : (

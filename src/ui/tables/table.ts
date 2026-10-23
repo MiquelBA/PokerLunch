@@ -74,7 +74,14 @@ export interface MyTable {
   readonly host: string;
   /** My score there; null while I haven't played it. */
   readonly score: number | null;
+  /** I started the game that counts: leaving it halfway doesn't give a second try. */
+  readonly started?: boolean;
   readonly at: number;
+}
+
+/** Whether I already started the game that counts at this table (on this phone). */
+export function startedTable(code: string): boolean {
+  return loadMyTables().some((t) => t.code === code && t.started);
 }
 
 export function loadMyTables(): MyTable[] {
@@ -86,11 +93,17 @@ export function loadMyTables(): MyTable[] {
   }
 }
 
-/** Puts a table first on the list (a score already there is kept unless a new one comes). */
+/** Puts a table first on the list (a score or a start already there is kept). */
 export function rememberTable(entry: Omit<MyTable, 'at' | 'score'> & { score?: number | null }): MyTable[] {
   const list = loadMyTables();
   const before = list.find((t) => t.code === entry.code);
-  const next: MyTable = { code: entry.code, host: entry.host, score: entry.score ?? before?.score ?? null, at: Date.now() };
+  const next: MyTable = {
+    code: entry.code,
+    host: entry.host,
+    score: entry.score ?? before?.score ?? null,
+    started: entry.started || before?.started || undefined,
+    at: Date.now(),
+  };
   const all = [next, ...list.filter((t) => t.code !== entry.code)].slice(0, UI.tables.keep);
   try {
     localStorage.setItem(UI.tables.key, JSON.stringify(all));

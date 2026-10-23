@@ -19,6 +19,7 @@ export const TABLE_STRINGS = {
   sit: 'Seu i juga',
   played: (score: number) => `Ja hi has jugat: ${n(score)} punts`,
   practice: 'Torna-hi (no compta)',
+  left: 'Ja hi vas començar una partida i la vas deixar a mitges: ara només hi pots practicar.',
   practiceShort: 'Practica-hi',
   empty: 'Encara no hi ha ningú.',
   // Playing: the race with the others' ghosts

@@ -28,7 +28,7 @@ import { Champion } from './tour/Champion';
 import { GoalsBar, isChampion, LevelIntro, levelNumber, TourMap, TourResult } from './tour/TourUI';
 import type { GameDriver } from './useGame';
 import { newTableCode } from '../leaderboard/tables';
-import { clearTableLink, readTableLink, type LoadedTable } from './tables/table';
+import { clearTableLink, readTableLink, rememberTable, type LoadedTable } from './tables/table';
 import { MyTablesSheet, TableLobby, TableRace, TableResult, type TableGame } from './tables/TableUI';
 import { TABLE_STRINGS } from './tables/strings';
 
@@ -160,6 +160,9 @@ export function App() {
     modeRef.current = m;
     game.setDriver(null);
     const t = m === 'table' ? tableRef.current : null;
+    // One try per table: the game that counts is marked as soon as it starts, so leaving it halfway
+    // doesn't give another go at the same cards (a new table has nothing to try again).
+    if (t?.counts && !t.isNew) rememberTable({ code: t.code, host: t.host ?? '', started: true });
     track('game_start', undefined, { mode: m, ...(t ? { table: t.code, counts: t.counts } : {}) });
     setMode(m);
     game.start(t ? t.seed : randomSeed());
@@ -381,7 +384,7 @@ export function App() {
         <div className="overlay dim">
           <div className="sheet" role="alertdialog" aria-labelledby="quit-ask-title">
             <h2 id="quit-ask-title">{STRINGS.quitAsk.title}</h2>
-            <p>{mode === 'tour' ? STRINGS.quitAsk.tour : mode === 'table' && table?.counts ? STRINGS.quitAsk.table : STRINGS.quitAsk.body}</p>
+            <p>{mode === 'tour' ? STRINGS.quitAsk.tour : mode === 'table' && table?.counts && !table.isNew ? STRINGS.quitAsk.table : STRINGS.quitAsk.body}</p>
             <button className="btn primary" type="button" onClick={() => { setQuitAsk(false); game.setPaused(false); }}>{STRINGS.quitAsk.no}</button>
             <button className="btn ghost" type="button" onClick={() => { setQuitAsk(false); if (mode === 'tour') backToMap(); else game.quit(); }}>{STRINGS.quitAsk.yes}</button>
           </div>
