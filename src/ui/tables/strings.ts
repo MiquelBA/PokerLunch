@@ -14,8 +14,8 @@ const minutes = (ms: number) => {
 };
 
 export const TABLE_STRINGS = {
-  menuButton: 'Munta una taula',
-  menuInfo: 'Les mateixes cartes per a tots els amics',
+  menuButton: 'Taula amb amics',
+  menuInfo: 'Qui farà més punts?',
   // Opening a table's link
   loading: 'Obrint la taula…',
   missing: 'Aquesta taula no existeix.',
