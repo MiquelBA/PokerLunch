@@ -1,6 +1,7 @@
 // The shared ranking. On the end screen (with a score) it asks for a name once and sends the score;
 // opened from the trophy button (no score) it only shows the top players.
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { fmt } from '../ui/i18n/lang';
 import { STRINGS } from '../ui/strings';
 import { fetchRank, fetchTop, RejectedError, submitScore, type RankedScore } from './api';
 import { LEADERBOARD } from './config';
@@ -107,7 +108,7 @@ export function Leaderboard({ ranking, score }: { ranking: string; score?: numbe
             <li key={row.playerId} className={row.playerId === player?.id ? 'me' : undefined}>
               <span className="lb-pos">{i + 1}</span>
               <span className="lb-who">{row.name}</span>
-              <span className="lb-score">{row.score.toLocaleString('ca')}</span>
+              <span className="lb-score">{fmt(row.score)}</span>
             </li>
           ))}
         </ol>

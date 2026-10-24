@@ -54,7 +54,7 @@ export function drawChampion(ctx: CanvasRenderingContext2D, o: { stars: number; 
   ctx.shadowColor = 'rgba(0, 0, 0, 0.5)'; ctx.shadowOffsetY = 8; ctx.shadowBlur = 0;
   ctx.fillStyle = '#FFFFFF';
   ctx.font = `92px ${display}`;
-  ctx.fillText('CAMPIÓ DEL', W / 2, 830);
+  ctx.fillText(T.championImageKicker, W / 2, 830);
   ctx.fillStyle = '#FFC93C';
   ctx.font = `176px ${display}`;
   ctx.fillText('POKER TOUR', W / 2, 990);
