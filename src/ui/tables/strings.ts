@@ -1,24 +1,14 @@
-// The tables' texts, in Catalan.
-
-const n = (v: number) => v.toLocaleString('ca');
+// The tables' texts. The Catalan original is here; Spanish and English are in ../i18n/, with the same shape.
+import { en } from '../i18n/en/tables';
+import { es } from '../i18n/es/tables';
+import { fmt as n, pick } from '../i18n/lang';
+import { duration, minutes } from '../i18n/time';
 
 const vowel = (name: string) => /^[aeiouàèéíïòóúüh]/i.test(name);
 /** "de Pau", "d’Anna". */
 const of = (name: string) => (vowel(name) ? `d’${name}` : `de ${name}`);
-/** Time left, rounded: "18 h", "3 h 20 min", "12 min". */
-const duration = (ms: number) => {
-  const m = Math.max(1, Math.ceil(ms / 60_000));
-  if (m < 60) return `${m} min`;
-  const h = Math.floor(m / 60);
-  return h >= 6 || m % 60 === 0 ? `${h} h` : `${h} h ${m % 60} min`;
-};
-/** Time played, rounded: "3 min", "1 h 05 min". */
-const minutes = (ms: number) => {
-  const m = Math.max(1, Math.round(ms / 60_000));
-  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min`;
-};
 
-export const TABLE_STRINGS = {
+const TABLE_STRINGS_CA = {
   menuButton: 'Taula amb amics',
   menuInfo: 'Qui farà més punts?',
   // The first time: how a table works
@@ -103,4 +93,9 @@ export const TABLE_STRINGS = {
   mineEmpty: 'Encara no has jugat a cap taula. Munta’n una i convida els amics!',
   forget: (host: string) => `Treu la taula ${of(host)} de la llista`,
   mineScore: (score: number | null) => (score === null ? 'Pendent' : `${n(score)} punts`),
-} as const;
+};
+
+/** The shape every language fills in. */
+export type TableTexts = typeof TABLE_STRINGS_CA;
+
+export const TABLE_STRINGS = pick<TableTexts>({ ca: TABLE_STRINGS_CA, es, en });

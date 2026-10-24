@@ -11,6 +11,7 @@ import { cleanName, loadPlayer, savePlayer, type Player } from '../../leaderboar
 import { track } from '../../leaderboard/track';
 import { CardFace } from '../CardFace';
 import { shareText } from '../share';
+import { fmt } from '../i18n/lang';
 import { HAND_NAMES, STRINGS } from '../strings';
 import { HAND_TIER, UI } from '../uiConfig';
 import { ghostScoreAt, stepsBy, type Ghost } from './ghosts';
@@ -19,8 +20,6 @@ import {
   forgetTable, isClosed, loadMyTables, loadTable, openNewTable, publishGame, rememberTable, sitDown, tableLink, triesLeft,
   type LoadedTable, type SeatStats,
 } from './table';
-
-const fmt = (v: number) => v.toLocaleString('ca');
 
 /** The table being played: its board and everyone's best game. */
 export interface TableGame {

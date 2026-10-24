@@ -9,9 +9,8 @@ import { playSound } from '../audio';
 import { CardFace } from '../CardFace';
 import { vibrate } from '../haptics';
 import { Skyline, Trophy } from './skylines';
-import { goalIcon, goalLabel, goalShort, TOUR_STRINGS as T } from './strings';
-
-const fmt = (v: number) => v.toLocaleString('ca');
+import { fmt } from '../i18n/lang';
+import { goalIcon, goalLabel, goalShort, levelIntro, levelName, TOUR_STRINGS as T, tourName } from './strings';
 
 /** The level's number across all tours (1-60). */
 export function levelNumber(tours: readonly Tour[], id: string): number {
@@ -59,7 +58,7 @@ export function TourMap({ tours, progress, celebrate, onPick, onClose, onChampio
                 <div className={`flight ${ti % 2 ? '' : 'mirror'} ${open ? 'open' : ''} ${flying ? 'flying' : ''}`} ref={flying ? (el) => { focus.current = el; } : undefined}>
                   <svg viewBox="0 0 300 70" aria-hidden="true"><path d={FLIGHT} /></svg>
                   {open ? <span className="plane"><Plane /></span> : <span className="flight-lock">🔒</span>}
-                  {flying && <span className="flight-label">✈ {T.newCity(tour.name)}</span>}
+                  {flying && <span className="flight-label">✈ {T.newCity(tourName(tour))}</span>}
                 </div>
               )}
               <section className={`city theme-${tour.theme} ${open ? '' : 'closed'}`}>
@@ -67,7 +66,7 @@ export function TourMap({ tours, progress, celebrate, onPick, onClose, onChampio
                   <Skyline theme={tour.theme} />
                   <div className="city-title">
                     <small>{T.city(ti + 1)}</small>
-                    <h3>{tour.name}</h3>
+                    <h3>{tourName(tour)}</h3>
                   </div>
                   <span className="city-stars">{T.stars(stars, tour.levels.length * 3)}</span>
                 </div>
@@ -86,7 +85,7 @@ export function TourMap({ tours, progress, celebrate, onPick, onClose, onChampio
                         className={`tour-level ${unlocked ? '' : 'locked'} ${level.special ? 'special' : ''} ${here ? 'current' : ''} ${rec ? 'passed' : ''}`}
                         disabled={!unlocked}
                         onClick={() => onPick(level)}
-                        aria-label={`${T.level(n)}: ${level.name}${unlocked ? '' : `. ${T.locked}`}`}
+                        aria-label={`${T.level(n)}: ${levelName(level)}${unlocked ? '' : `. ${T.locked}`}`}
                       >
                         <span className="tour-level-n">{unlocked ? n : '🔒'}</span>
                         <Stars count={rec?.stars ?? 0} />
@@ -154,8 +153,8 @@ export function LevelIntro({ level, number, best, onPlay, onClose }: {
     <div className="overlay dim" onClick={onClose}>
       <div className={`sheet level-intro ${level.special ? 'special' : ''}`} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
         <p className="level-kicker">{T.level(number)}{level.special ? ` · ${T.special}` : ''}</p>
-        <h2>{level.name}</h2>
-        {level.intro && <p className="level-text">{level.intro}</p>}
+        <h2>{levelName(level)}</h2>
+        {levelIntro(level) && <p className="level-text">{levelIntro(level)}</p>}
         <h3>{T.goals}</h3>
         <ul className="goal-list">
           {level.goals.map((g, i) => <li key={i}><span aria-hidden="true">{goalIcon(g)}</span>{goalLabel(g)}</li>)}
@@ -228,7 +227,7 @@ export function TourResult({ run, number, nextLevel, needStars, newTour, champio
   return (
     <div className="overlay dim">
       <div className={`sheet tour-result ${won ? 'won' : 'lost'}`} role="dialog" aria-modal="true">
-        <p className="level-kicker">{T.level(number)} · {run.level.name}</p>
+        <p className="level-kicker">{T.level(number)} · {levelName(run.level)}</p>
         <h2>{won ? T.won : T.lost}</h2>
         {won && <Stars count={run.stars} big />}
         <p className="over-score">{fmt(shown)}</p>

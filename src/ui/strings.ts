@@ -1,9 +1,11 @@
-// Every text on screen, in Catalan.
+// Every text on screen. The Catalan original is here; Spanish and English are in i18n/, with the same shape
+// (the typecheck fails if one of them misses a text). Only the player's language is exported.
 import type { BlastKind, HandType, PowerKind } from '../engine/types';
+import { en } from './i18n/en/main';
+import { es } from './i18n/es/main';
+import { fmt as n, pick } from './i18n/lang';
 
-const n = (v: number) => v.toLocaleString('ca');
-
-export const HAND_NAMES: Readonly<Record<HandType, string>> = {
+const HAND_NAMES_CA: Readonly<Record<HandType, string>> = {
   trips: 'Trio',
   twoPair: 'Doble parella',
   straight: 'Escala',
@@ -16,7 +18,7 @@ export const HAND_NAMES: Readonly<Record<HandType, string>> = {
 };
 
 /** One-line description for the help sheet. */
-export const HAND_RULES: Readonly<Record<HandType, string>> = {
+const HAND_RULES_CA: Readonly<Record<HandType, string>> = {
   trips: '3 cartes del mateix número',
   twoPair: '2 parelles, 4 cartes',
   straight: '5 números seguits, en qualsevol ordre',
@@ -41,7 +43,7 @@ export const HAND_EXAMPLES: Readonly<Record<HandType, string>> = {
   royalFlush: 'TH JH QH KH AH',
 };
 
-export const BLAST_RULES: Readonly<Record<BlastKind, string>> = {
+const BLAST_RULES_CA: Readonly<Record<BlastKind, string>> = {
   cross: 'Rebenta la fila i la columna',
   suit: 'Rebenta les cartes del pal que la toquen',
   rank: 'Rebenta totes les cartes d’aquell número',
@@ -52,7 +54,7 @@ export const BLAST_RULES: Readonly<Record<BlastKind, string>> = {
 };
 
 /** The streak power's name, shown big when it fires. */
-export const POWER_NAMES: Readonly<Record<PowerKind, string>> = {
+const POWER_NAMES_CA: Readonly<Record<PowerKind, string>> = {
   joker: 'Comodí!',
   time: '+3 segons!',
   row: 'Fila fora!',
@@ -62,7 +64,7 @@ export const POWER_NAMES: Readonly<Record<PowerKind, string>> = {
 };
 
 /** What the third hand of a type does, for the help sheet. */
-export const POWER_RULES: Readonly<Record<PowerKind, string>> = {
+const POWER_RULES_CA: Readonly<Record<PowerKind, string>> = {
   joker: 'cau un comodí',
   time: '+3 segons',
   row: 'rebenta la fila on acaba',
@@ -71,14 +73,14 @@ export const POWER_RULES: Readonly<Record<PowerKind, string>> = {
   double: 'punts dobles',
 };
 
-export const STRINGS = {
+const STRINGS_CA = {
   title: 'Poker Lunch',
   tagline: 'Traça mans de pòquer amb el dit',
   play: 'Juga',
   playAgain: 'Torna a jugar',
   howTo: 'Com es juga',
   /** The small buttons at the bottom of the start screen. */
-  menu: { more: 'Més opcions', help: 'Com es juga', sound: 'So', ranking: 'Rànquing', tables: 'Les meves taules', feedback: 'Opina', install: 'Instal·la' },
+  menu: { more: 'Més opcions', help: 'Com es juga', sound: 'So', ranking: 'Rànquing', tables: 'Les meves taules', feedback: 'Opina', install: 'Instal·la', language: 'Idioma' },
   score: 'Punts',
   best: 'Rècord',
   time: 'Temps',
@@ -100,6 +102,8 @@ export const STRINGS = {
   soundMute: 'Silencia el so',
   soundUnmute: 'Activa el so',
   close: 'Tanca',
+  /** What a screen reader says for each card. */
+  cardLabels: { fog: 'Carta amb boira', block: 'Bloc', stoneBlock: 'Bloc de pedra', joker: 'Comodí', ice: ' (glaçada)', bomb: ' (bomba)', chain: ' (encadenada)' },
   notAHand: 'No és cap mà',
   noTokens: (hand: string) => `${hand}: sense fitxes`,
   tokensLeft: (k: number) => (k === 1 ? 'Queda 1 fitxa' : `Queden ${k} fitxes`),
@@ -196,4 +200,25 @@ export const STRINGS = {
     power: 'Poder',
     handsTitle: 'Les mans',
   },
-} as const;
+};
+
+const ca = {
+  HAND_NAMES: HAND_NAMES_CA,
+  HAND_RULES: HAND_RULES_CA,
+  BLAST_RULES: BLAST_RULES_CA,
+  POWER_NAMES: POWER_NAMES_CA,
+  POWER_RULES: POWER_RULES_CA,
+  STRINGS: STRINGS_CA,
+};
+
+/** The shape every language fills in. */
+export type MainTexts = typeof ca;
+
+const TEXTS = pick<MainTexts>({ ca, es, en });
+
+export const HAND_NAMES = TEXTS.HAND_NAMES;
+export const HAND_RULES = TEXTS.HAND_RULES;
+export const BLAST_RULES = TEXTS.BLAST_RULES;
+export const POWER_NAMES = TEXTS.POWER_NAMES;
+export const POWER_RULES = TEXTS.POWER_RULES;
+export const STRINGS = TEXTS.STRINGS;

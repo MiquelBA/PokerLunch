@@ -13,6 +13,7 @@ Les regles són a [REGLES.md](REGLES.md). Tots els valors de joc són a `src/eng
 - `npm run sim -- 40 40`: simulador (freqüència de cada mà i un bot greedy)
 - `npm run build`: web estàtica a `dist/`
 - `npm run build && npm run artifact`: una sola pàgina HTML a `artifact/poker-lunch.html`
+- `npm run app:ios` · `npm run app:android`: l'app nativa amb Capacitor (vegeu [docs/APP-NATIVA.md](docs/APP-NATIVA.md))
 
 ## Arquitectura
 Com a Orca Lunch: `src/engine/` és TypeScript pur i determinista (`newGame`, `applyMove`, `tick`, `findHands`), i la interfície (`src/ui/`) només reprodueix els esdeveniments del motor. El so és sintetitzat (Web Audio) i els efectes van en un canvas sobre el tauler.

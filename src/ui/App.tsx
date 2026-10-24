@@ -9,6 +9,7 @@ import { NeighbourRose, TraceDemo } from './TraceDemo';
 import { CardFace, CardSprite } from './CardFace';
 import { vibrate } from './haptics';
 import { loadBest, loadFlag, saveBest, saveFlag } from './storage';
+import { fmt, LANG, LANG_NAMES, LANGS, setLang } from './i18n/lang';
 import { HAND_EXAMPLES, HAND_NAMES, HAND_RULES, STRINGS } from './strings';
 import { BIG_TIER, HAND_TIER, ROYAL_TIER, UI } from './uiConfig';
 import { useGame, type Floater } from './useGame';
@@ -23,7 +24,7 @@ import { playRun, startRun, tickRun, type TourRun } from '../engine/tour/run';
 import { playSeed } from '../engine/tour/setup';
 import type { Level, Tour } from '../engine/tour/schema';
 import { loadTourProgress, saveTourProgress } from './tour/progressStore';
-import { TOUR_STRINGS } from './tour/strings';
+import { TOUR_STRINGS, tourName } from './tour/strings';
 import { Champion } from './tour/Champion';
 import { GoalsBar, isChampion, LevelIntro, levelNumber, TourMap, TourResult } from './tour/TourUI';
 import type { GameDriver } from './useGame';
@@ -41,8 +42,6 @@ interface Trace {
   /** Base points of the hand (before combo and golden cards). */
   readonly points: number;
 }
-
-const fmt = (v: number) => v.toLocaleString('ca');
 
 export function App() {
   const [best, setBest] = useState(() => loadBest(UI.bestKey));
@@ -251,7 +250,7 @@ export function App() {
   const nextOpen = following && isUnlocked(TOURS, tourProgress, following.id) ? following : null;
   const followingTour = following ? TOURS.find((t) => t.levels.includes(following)) : undefined;
   const nextLocked = following && !nextOpen && followingTour && starsMissing(followingTour, tourProgress) > 0
-    ? { tour: followingTour.name, missing: starsMissing(followingTour, tourProgress) }
+    ? { tour: tourName(followingTour), missing: starsMissing(followingTour, tourProgress) }
     : null;
 
   // The last level of the Tour: after the stars land, the champion's show starts by itself.
@@ -417,7 +416,7 @@ export function App() {
           number={levelNumber(TOURS, tourRun.level.id)}
           nextLevel={nextOpen}
           needStars={nextLocked}
-          newTour={tourNewTour?.name ?? null}
+          newTour={tourNewTour ? tourName(tourNewTour) : null}
           champion={justChampion}
           onChampion={() => setChampion('intro')}
           onNext={() => {
@@ -459,7 +458,7 @@ export function App() {
           stars={totalStars(tourProgress)}
           maxStars={allLevels(TOURS).length * 3}
           levels={allLevels(TOURS).length}
-          cities={TOURS.map((t) => t.name)}
+          cities={TOURS.map(tourName)}
           intro={champion === 'intro'}
           onShared={() => track('share', totalStars(tourProgress), { mode: 'tour', kind: 'champion' })}
           onClose={() => {
@@ -722,6 +721,13 @@ function Menu({ best, sound, onPlay, onTable, onHelp, onSound, onTour, onRanking
           {onRanking && <button type="button" className="menu-tool" onClick={onRanking}>{M.ranking}</button>}
           <button type="button" className="menu-icon" onClick={onSound} aria-pressed={sound} aria-label={M.sound} title={M.sound}><SoundIcon on={sound} /></button>
         </nav>
+        <div className="menu-langs" role="group" aria-label={M.language}>
+          {LANGS.map((l) => (
+            <button key={l} type="button" lang={l} aria-pressed={l === LANG} title={LANG_NAMES[l]} onClick={() => { if (l !== LANG) setLang(l); }}>
+              {l.toUpperCase()}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
