@@ -1,5 +1,6 @@
 // The "Poker Tour champion" picture to share: drawn on a canvas (1080×1350, a phone post), shared
 // as a PNG through the phone's share menu when it takes files.
+import { isNative } from '../native';
 import { gameUrl } from '../share';
 import { TROPHY_PATHS } from './skylines';
 import { TOUR_STRINGS as T } from './strings';
@@ -75,7 +76,8 @@ export function drawChampion(ctx: CanvasRenderingContext2D, o: { stars: number; 
 
 /** Shares the picture; 'unsupported' when the phone can't share files (the caller falls back to text). */
 export async function shareChampionImage(o: { stars: number; maxStars: number; levels: number; cities: readonly string[] }): Promise<'shared' | 'closed' | 'unsupported'> {
-  if (!navigator.canShare) return 'unsupported';
+  // The app's web view can't hand files to the share menu yet: the caller shares the text instead.
+  if (isNative() || !navigator.canShare) return 'unsupported';
   await Promise.all([document.fonts.load('80px "Bebas Neue"'), document.fonts.load('700 40px "Barlow Condensed"')]).catch(() => undefined);
   const canvas = document.createElement('canvas');
   canvas.width = W; canvas.height = H;
