@@ -694,7 +694,8 @@ const SoundIcon = ({ on }: { on: boolean }) => (
 function Menu({ best, sound, onPlay, onTable, onHelp, onSound, onTour, onRanking, onTables, tourInfo }: MenuProps) {
   const cards = useMemo(() => parseCards('TH JH QH KH AH'), []);
   const M = STRINGS.menu;
-  // Two levels: a game, a table and the Tour first; tables and ranking at the bottom, between two quiet icons.
+  // Play is the one big button; a table and the Tour are two quiet chips under it; tables and ranking at
+  // the bottom, between two quiet icons.
   return (
     <div className="overlay menu">
       <div className="menu-inner">
@@ -703,17 +704,11 @@ function Menu({ best, sound, onPlay, onTable, onHelp, onSound, onTour, onRanking
         </div>
         <h1 className="logo">POKER<br /><span>LUNCH</span></h1>
         <p className="tagline">{STRINGS.tagline}</p>
-        <button className="btn primary big" type="button" onClick={onPlay}>{STRINGS.play}</button>
-        {onTable && (
-          <button className="btn table-hero" type="button" onClick={onTable}>
-            <span className="table-hero-title">🃏 {TABLE_STRINGS.menuButton}</span>
-            <small>{TABLE_STRINGS.menuInfo}</small>
-          </button>
-        )}
-        <button className="btn tour-hero" type="button" onClick={onTour}>
-          <span className="tour-hero-title">🏆 {TOUR_STRINGS.menuButton}</span>
-          <small>{tourInfo}</small>
-        </button>
+        <button className="btn primary big menu-play" type="button" onClick={onPlay}>{STRINGS.play}</button>
+        <div className="menu-modes">
+          {onTable && <button className="menu-mode" type="button" onClick={onTable}><span aria-hidden="true">🃏</span>{TABLE_STRINGS.menuButton}</button>}
+          <button className="menu-mode" type="button" onClick={onTour} title={tourInfo}><span aria-hidden="true">🏆</span>{TOUR_STRINGS.menuButton}</button>
+        </div>
         {best > 0 && <p className="menu-best">{STRINGS.best}: {fmt(best)}</p>}
         <nav className="menu-tools" aria-label={M.more}>
           <button type="button" className="menu-icon" onClick={onHelp} aria-label={M.help} title={M.help}><HelpIcon /></button>

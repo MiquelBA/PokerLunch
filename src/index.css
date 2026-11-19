@@ -470,6 +470,16 @@ button:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
 }
 .tagline { margin: 0 0 6px; font-size: 18px; font-weight: 600; opacity: 0.85; }
 .menu-best { margin: 0; font-size: 16px; opacity: 0.8; }
+/* Play: the one big button. A table and the Tour: two quiet chips under it, after a little air. */
+.btn.menu-play { min-height: 88px; font-size: 42px; border-radius: 26px; }
+.menu-modes { display: flex; justify-content: center; gap: 10px; margin-top: 10px; }
+.menu-mode {
+  flex: 1; max-width: 180px; min-height: 52px; padding: 6px 12px; border-radius: 999px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  border: 1.5px solid rgba(255, 248, 231, 0.3); background: none; color: var(--cream);
+  font: inherit; font-size: 16px; font-weight: 800;
+}
+.menu-mode:active { background: rgba(255, 255, 255, 0.08); }
 
 /* Countdown */
 .overlay.countdown { pointer-events: none; }
@@ -723,21 +733,6 @@ button:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
 @keyframes gold-square { to { box-shadow: inset 0 0 0 3px #FFF3B0, 0 0 26px 6px rgba(255, 201, 60, 0.95); } }
 
 /* ---- Poker Tour: menu, map, level card, goals, result ---- */
-/* The Poker Tour's button: as big as Juga, in the six cities' colours, with a passing shine. */
-.btn.tour-hero {
-  position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 64px;
-  background: linear-gradient(100deg, #1F7A55 0%, #1D4E89 22%, #4A5368 42%, #A3202E 60%, #2D7A9A 78%, #5B1A8E 100%);
-  box-shadow: inset 0 0 0 3px var(--gold), 0 4px 0 #7A5207, 0 8px 18px rgba(0, 0, 0, 0.35);
-}
-.btn.tour-hero::after {
-  content: ''; position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.35) 50%, transparent 70%);
-  transform: translateX(-120%); animation: tour-shine 3.2s ease-in-out 1s infinite;
-}
-@keyframes tour-shine { 0%, 55% { transform: translateX(-120%); } 85%, 100% { transform: translateX(120%); } }
-.tour-hero-title { font-family: var(--display); font-weight: 400; font-size: 32px; line-height: 1; letter-spacing: 0.05em; color: var(--gold); text-shadow: 0 2px 0 rgba(0, 0, 0, 0.45); }
-.btn.tour-hero small { font-size: 15px; font-weight: 700; color: var(--cream); }
-@media (prefers-reduced-motion: reduce) { .btn.tour-hero::after { animation: none; } }
 /* Everything else: small and quiet. */
 .menu-tools { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 6px; }
 .menu-tools button { border: 0; background: none; font: inherit; cursor: pointer; }
@@ -953,17 +948,7 @@ button:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
 .champion-btn { animation: glow 700ms ease-in-out infinite alternate; }
 @media (prefers-reduced-motion: reduce) { .champion-rays, .champion-spots i, .champion-trophy, .champion-card { animation: none !important; } }
 
-/* ---- Tables: the menu button, the link's card, the race while playing, the table after ---- */
-.btn.table-hero {
-  position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 72px;
-  background: linear-gradient(160deg, #0E6B7A 0%, #0B3E5C 55%, #1A1F4D 100%);
-  box-shadow: inset 0 0 0 3px var(--cyan), 0 4px 0 #0A3550, 0 0 22px rgba(91, 231, 255, 0.35), 0 8px 18px rgba(0, 0, 0, 0.35);
-  animation: table-glow 1.6s ease-in-out infinite alternate;
-}
-@keyframes table-glow { to { box-shadow: inset 0 0 0 3px var(--cyan), 0 4px 0 #0A3550, 0 0 34px rgba(91, 231, 255, 0.6), 0 8px 18px rgba(0, 0, 0, 0.35); } }
-.table-hero-title { font-family: var(--display); font-weight: 400; font-size: 36px; line-height: 1; letter-spacing: 0.05em; color: #fff; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.45), 0 0 12px rgba(91, 231, 255, 0.8); }
-.btn.table-hero small { font-size: 15px; font-weight: 700; color: var(--cream); }
-@media (prefers-reduced-motion: reduce) { .btn.table-hero { animation: none; } }
+/* ---- Tables: the link's card, the race while playing, the table after ---- */
 .table-lead { font-size: 16px !important; opacity: 0.9; }
 .table-count { color: var(--cyan); font-weight: 800 !important; }
 .table-seats .lb-sub { display: block; overflow: hidden; text-overflow: ellipsis; font-size: 12px; font-weight: 600; opacity: 0.7; }
