@@ -13,7 +13,8 @@
     "artifact": "node scripts/inline.mjs",
     "app:sync": "npm run build && cap sync",
     "app:ios": "npm run build && cap sync ios && cap open ios",
-    "app:android": "npm run build && cap sync android && cap open android"
+    "app:android": "npm run build && cap sync android && cap open android",
+    "sim:time": "tsx src/sim/time.ts"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.2",

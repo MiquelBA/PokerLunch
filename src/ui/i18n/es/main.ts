@@ -161,7 +161,7 @@ export const es: MainTexts = {
       rose: 'Las 8 cartas de alrededor se tocan: puedes pasar a cualquiera de ellas.',
       trace: 'Une de 3 a 5 cartas que formen una mano de póker.',
       all: 'Todas las cartas del trazo deben formar parte de la mano. El orden no importa.',
-      time: 'Tienes 2 minutos. Las manos grandes dan tiempo extra y las manos seguidas hacen combo.',
+      time: 'Empiezas con 2 minutos y cada mano suma más: cuanto más grande, más tiempo. Las manos seguidas hacen combo.',
       joker: 'El comodín hace de la carta que te falte.',
       golden: 'Una carta dorada duplica los puntos de la mano.',
       tokens: 'Cada mano tiene fichas (los puntos dorados de abajo): hacerla gasta una, y hacer otra distinta te la devuelve. Sin fichas, no la puedes hacer.',

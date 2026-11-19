@@ -161,7 +161,7 @@ export const en: MainTexts = {
       rose: 'The 8 cards around one all touch it: you can move to any of them.',
       trace: 'Link 3 to 5 cards that make a poker hand.',
       all: 'Every card in the trace must be part of the hand. Order doesn’t matter.',
-      time: 'You have 2 minutes. Big hands give extra time, and hands in quick succession make combos.',
+      time: 'You start with 2 minutes and every hand adds more: the bigger, the more time. Quick hands in a row make combos.',
       joker: 'The joker becomes whatever card you need.',
       golden: 'A golden card doubles the hand’s points.',
       tokens: 'Each hand has chips (the gold dots below): making it spends one, and making a different hand gives it back. With no chips, you can’t make it.',

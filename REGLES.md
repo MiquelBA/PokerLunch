@@ -25,15 +25,15 @@ L'ordre i els punts segueixen el pòquer real: com més difícil, molt més val.
 
 | Mà | Punts | Fitxes | Temps | Efecte al tauler | Poder (varietat) |
 |---|---:|---:|---:|---|---|
-| Doble parella | 100 | 2 | | | +3 s |
-| Trio | 150 | 3 | | | Cau un comodí |
-| Escala | 250 | 2 | | | Rebenta la fila de l'última carta |
-| Color | 350 | 2 | | | Tempesta: rebenta totes les cartes del pal |
-| Full | 800 | 2 | +2 s | | Les cartes del número del trio es tornen daurades |
-| Pòquer | 2.000 | ∞ | +3 s | Rebenta la fila i la columna de l'última carta | Punts ×2 |
-| Escala de color | 5.000 | ∞ | +4 s | Rebenta les cartes del mateix pal que toquen el camí | Punts ×2 |
-| Repòquer | 10.000 | ∞ | +4 s | Rebenta totes les cartes d'aquell número | Punts ×2 |
-| Escala reial | 20.000 | ∞ | +5 s | Rebenta tot el tauler | Punts ×2 |
+| Doble parella | 100 | 2 | +2 s | | +3 s |
+| Trio | 150 | 3 | +2 s | | Cau un comodí |
+| Escala | 250 | 2 | +3 s | | Rebenta la fila de l'última carta |
+| Color | 350 | 2 | +3 s | | Tempesta: rebenta totes les cartes del pal |
+| Full | 800 | 2 | +4 s | | Les cartes del número del trio es tornen daurades |
+| Pòquer | 2.000 | ∞ | +5 s | Rebenta la fila i la columna de l'última carta | Punts ×2 |
+| Escala de color | 5.000 | ∞ | +6 s | Rebenta les cartes del mateix pal que toquen el camí | Punts ×2 |
+| Repòquer | 10.000 | ∞ | +7 s | Rebenta totes les cartes d'aquell número | Punts ×2 |
+| Escala reial | 20.000 | ∞ | +8 s | Rebenta tot el tauler | Punts ×2 |
 
 ### Espectacle per nivell
 - **Escala**: una llum corre carta a carta pel traç i una ràfega creua el tauler, amb una escala musical que puja.
@@ -46,7 +46,7 @@ L'ordre i els punts segueixen el pòquer real: com més difícil, molt més val.
 
 - Cada carta rebentada val 40 punts × combo.
 - **Combo de velocitat**: una mà a menys de 2,5 s de l'anterior; multiplicadors ×1,2, ×1,5, ×2.
-- Bonificació de temps màxima per partida: +20 s (el +3 s del poder de la doble parella no hi compta).
+- **Temps**: cada mà suma els segons de la taula. A partir dels 2:30 de partida, cada 30 s les mans (i el poder de la doble parella) donen un segon menys, fins a no donar-ne cap. Així una partida al ritme real (unes 10 s per mà) dura uns 3 minuts i una de molt ràpida, 4 o 5, però sempre s'acaba (`npm run sim:time`). Límit de seguretat: +4 min per partida (6 minuts en total).
 
 ### Fitxes
 Les mans petites tenen fitxes (els punts daurats de la barra de sota). Fer una mà en gasta una; fer qualsevol altra mà en torna una a cada mà que no les tingui totes. **Sense fitxes, aquella mà no es pot fer** (el traç surt en vermell). Així no es poden fer colors (ni cap altra mà) seguits sense parar.
@@ -63,7 +63,7 @@ Calibratge (`npm run sim -- 12 30`, 30 jugades): un bot que mira la varietat fa 
 ## 5. Partida
 - Les cartes es reparteixen cap per avall durant el compte enrere i es giren totes alhora al «Som-hi!».
 - **Pista**: després de 10 s sense jugar, s'il·luminen les cartes d'una mà possible (en les 3 primeres mans d'un jugador nou, un dit la dibuixa).
-- 2 minuts, amb compte enrere. El rellotge s'atura mentre es reprodueixen les animacions i quan l'app passa a segon pla.
+- 2 minuts d'entrada, amb compte enrere, que les mans van allargant (secció 3). El rellotge s'atura mentre es reprodueixen les animacions i quan l'app passa a segon pla.
 - **Taules**: qui obre una taula ("Taula amb amics") primer comparteix l'enllaç (`#t=<codi>`) i després hi juga com tothom. Tothom qui hi seu juga les mateixes cartes en el mateix ordre (la mateixa llavor) i, mentre juga, veu la cursa amb la puntuació que portaven els altres en aquell mateix moment de la partida (els *fantasmes*) i un avís quan algú hi va fer un full o més. Cada jugador, també qui l'ha oberta, té 10 intents («Torna-hi») i compta la seva millor partida; a igual puntuació, guanya qui l'ha feta en menys intents. Cada intent es compta al servidor quan comença, de manera que una partida deixada a mitges també compta. La taula tanca al cap de 24 hores i llavors en surt el guanyador. Les taules d'abans d'aquest límit no en tenen. La primera vegada que s'obre una taula (des del menú o des d'un enllaç), una pantalla explica com funcionen en quatre passos.
 - Cada seient guarda la millor partida (puntuació i jugades, amb el camí i el moment en ms sencers). El joc torna a jugar les jugades per dibuixar els fantasmes, inclosa la teva millor partida, i descarta un seient si no donen la seva puntuació.
 - **Classificació** compartida (Supabase): una general (partides lliures, rànquing `poker-v3`). Cada taula té la seva.

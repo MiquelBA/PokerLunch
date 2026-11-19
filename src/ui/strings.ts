@@ -188,7 +188,7 @@ const STRINGS_CA = {
     rose: 'Les 8 cartes del voltant es toquen: pots passar a qualsevol d’elles.',
     trace: 'Uneix de 3 a 5 cartes que formin una mà de pòquer.',
     all: 'Totes les cartes del traç han de formar part de la mà. L’ordre no importa.',
-    time: 'Tens 2 minuts. Les mans grans donen temps extra i mans seguides fan combo.',
+    time: 'Comences amb 2 minuts i cada mà en suma més: com més gran, més temps. Mans seguides fan combo.',
     joker: 'El comodí fa de la carta que et falti.',
     golden: 'Una carta daurada duplica els punts de la mà.',
     tokens: 'Cada mà té fitxes (els punts daurats de sota): fer-la en gasta una, i fer-ne una altra de diferent te la torna. Sense fitxes, no la pots fer.',

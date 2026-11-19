@@ -119,6 +119,8 @@ export interface GameConfig {
   readonly mode: GameMode;
   readonly durationMs: number;
   readonly maxTimeBonusMs: number;
+  /** Time bonuses get `lessMs` smaller for every `everyMs` (or part of it) played after `afterMs`. Absent: they never shrink. */
+  readonly timeBonusFade?: { readonly afterMs: number; readonly everyMs: number; readonly lessMs: number };
   readonly maxMoves: number;
 }
 
