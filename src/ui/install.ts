@@ -1,5 +1,7 @@
 // "Add to home screen": Android/Chrome offers its own prompt (kept here until the player asks);
 // iPhone has no prompt, so we show how to do it from Safari's share menu.
+import { isNative } from './native';
+
 interface InstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
@@ -41,6 +43,7 @@ export function isIos(): boolean {
 
 /** 'prompt' = the browser can install it; 'ios' = show the steps; null = nothing to offer. */
 export function installMode(): 'prompt' | 'ios' | null {
+  if (isNative()) return null;
   if (isStandalone()) return null;
   if (deferred) return 'prompt';
   return isIos() ? 'ios' : null;

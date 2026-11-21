@@ -7,8 +7,8 @@ exports[`regression: Classic (time mode, default rules) > seed 1 1`] = `
 4H KC* 8S* TH 6H
 4H KD* 7H QH 3C
 QD AH QC 9S* JH*",
-  "digest": "0353a185bdf43a9b",
-  "events": 378,
+  "digest": "a6f97802b4c36f84",
+  "events": 410,
   "handCounts": {
     "fiveKind": 0,
     "flush": 10,
@@ -33,8 +33,8 @@ exports[`regression: Classic (time mode, default rules) > seed 7 1`] = `
 8D 4D AC TH 9C
 JC 6H KC 2H* QH
 KD KS QS 5S 6D",
-  "digest": "7c871aa468911fed",
-  "events": 377,
+  "digest": "9ab6857acaff676f",
+  "events": 409,
   "handCounts": {
     "fiveKind": 0,
     "flush": 9,
@@ -59,8 +59,8 @@ exports[`regression: Classic (time mode, default rules) > seed 42 1`] = `
 7H QC TD JC 6S
 3C 3S 2D 3H 2D
 9H* KD AH 4H 6H",
-  "digest": "c8375142f1dd5ce9",
-  "events": 380,
+  "digest": "156016d3cc7eb103",
+  "events": 411,
   "handCounts": {
     "fiveKind": 0,
     "flush": 4,
@@ -85,8 +85,8 @@ exports[`regression: Classic (time mode, default rules) > seed 1234 1`] = `
 5S 5D 4S JD JC
 JH 8D 8S 7H 3S
 3H 7D 8D 2D* 6D",
-  "digest": "fc80f33fa2449e93",
-  "events": 394,
+  "digest": "c191b80e4fbe70f6",
+  "events": 427,
   "handCounts": {
     "fiveKind": 0,
     "flush": 3,
@@ -111,8 +111,8 @@ exports[`regression: Classic (time mode, default rules) > seed 99999 1`] = `
 9H 3C KC 9D KH
 9H 6H QD 2H 8D
 QC KC AC KH 9C",
-  "digest": "08edf701c5c4088d",
-  "events": 392,
+  "digest": "cd01d9d7cfec3a07",
+  "events": 424,
   "handCounts": {
     "fiveKind": 0,
     "flush": 8,
@@ -137,8 +137,8 @@ AC 4D TS AC 7S
 TS 5S QH 5C 3D
 KS AH 8H 8S KD
 6D 4C 3S 5S* TD",
-  "digest": "7485cdf1bb57afb4",
-  "events": 374,
+  "digest": "6917b15120819269",
+  "events": 408,
   "handCounts": {
     "fiveKind": 0,
     "flush": 8,
@@ -163,8 +163,8 @@ exports[`regression: Daily challenge seeds > seed 1290413839 1`] = `
 3H JD TS 7C 6H
 KH TD 8C KC AH
 JH 2H QD 7D 2S",
-  "digest": "0d33f582e488e9d0",
-  "events": 384,
+  "digest": "33a296ba9fd47dc2",
+  "events": 419,
   "handCounts": {
     "fiveKind": 0,
     "flush": 8,

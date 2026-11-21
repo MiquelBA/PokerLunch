@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { parseCards } from '../../engine/notation';
 import type { Move } from '../../engine/types';
 import { RejectedError } from '../../leaderboard/api';
+import { profileChanged } from '../../leaderboard/account';
 import { LEADERBOARD } from '../../leaderboard/config';
 import { deviceId } from '../../leaderboard/device';
 import { nameIsClean } from '../../leaderboard/names';
@@ -11,6 +12,7 @@ import { cleanName, loadPlayer, savePlayer, type Player } from '../../leaderboar
 import { track } from '../../leaderboard/track';
 import { CardFace } from '../CardFace';
 import { shareText } from '../share';
+import { fmt } from '../i18n/lang';
 import { HAND_NAMES, STRINGS } from '../strings';
 import { HAND_TIER, UI } from '../uiConfig';
 import { ghostScoreAt, stepsBy, type Ghost } from './ghosts';
@@ -19,8 +21,6 @@ import {
   forgetTable, isClosed, loadMyTables, loadTable, openNewTable, publishGame, rememberTable, sitDown, tableLink, triesLeft,
   type LoadedTable, type SeatStats,
 } from './table';
-
-const fmt = (v: number) => v.toLocaleString('ca');
 
 /** The table being played: its board and everyone's best game. */
 export interface TableGame {
@@ -110,6 +110,7 @@ function NameForm({ onSaved }: { onSaved: (player: Player) => void }) {
     if (!cleanName(draft)) return;
     if (!nameIsClean(draft)) { setRefused(true); return; }
     onSaved(savePlayer(draft, loadPlayer()));
+    profileChanged();
   };
   return (
     <form className="lb-name" onSubmit={save}>

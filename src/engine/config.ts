@@ -12,15 +12,15 @@ export const DEFAULT_CONFIG: GameConfig = {
   goldenChance: 0.04,
   goldenMultiplier: 2,
   hands: {
-    twoPair: { points: 100, timeBonusMs: 0, power: 'time', tokens: 2 },
-    trips: { points: 150, timeBonusMs: 0, power: 'joker', tokens: 3 },
-    straight: { points: 250, timeBonusMs: 0, power: 'row', tokens: 2 },
-    flush: { points: 350, timeBonusMs: 0, power: 'storm', tokens: 2 },
-    fullHouse: { points: 800, timeBonusMs: 2000, power: 'gild', tokens: 2 },
-    quads: { points: 2000, timeBonusMs: 3000, blast: 'cross', power: 'double' },
-    straightFlush: { points: 5000, timeBonusMs: 4000, blast: 'suit', power: 'double' },
-    fiveKind: { points: 10000, timeBonusMs: 4000, blast: 'rank', power: 'double' },
-    royalFlush: { points: 20000, timeBonusMs: 5000, blast: 'board', power: 'double' },
+    twoPair: { points: 100, timeBonusMs: 2000, power: 'time', tokens: 2 },
+    trips: { points: 150, timeBonusMs: 2000, power: 'joker', tokens: 3 },
+    straight: { points: 250, timeBonusMs: 3000, power: 'row', tokens: 2 },
+    flush: { points: 350, timeBonusMs: 3000, power: 'storm', tokens: 2 },
+    fullHouse: { points: 800, timeBonusMs: 4000, power: 'gild', tokens: 2 },
+    quads: { points: 2000, timeBonusMs: 5000, blast: 'cross', power: 'double' },
+    straightFlush: { points: 5000, timeBonusMs: 6000, blast: 'suit', power: 'double' },
+    fiveKind: { points: 10000, timeBonusMs: 7000, blast: 'rank', power: 'double' },
+    royalFlush: { points: 20000, timeBonusMs: 8000, blast: 'board', power: 'double' },
   },
   pointsPerPip: 1,
   blastPointsPerCard: 40,
@@ -34,7 +34,11 @@ export const DEFAULT_CONFIG: GameConfig = {
   maxShuffleAttempts: 20,
   mode: 'time',
   durationMs: 120_000,
-  maxTimeBonusMs: 20_000,
+  // Every hand gives time, a second less every 30 s after 2:30, so a game at the players' real pace
+  // (~10 s a hand) lasts about 3 minutes and a fast one 4–5, but it always ends (npm run sim:time).
+  // The cap (6 minutes in all) only stops an inhumanly fast player.
+  maxTimeBonusMs: 240_000,
+  timeBonusFade: { afterMs: 150_000, everyMs: 30_000, lessMs: 1000 },
   maxMoves: 30,
 };
 

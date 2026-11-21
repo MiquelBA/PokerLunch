@@ -52,7 +52,7 @@ describe('regression: moves mode (simulator)', () => {
 describe('time bonuses', () => {
   it('stay within the cap, time power included, even for a player who farms it', () => {
     let s = newGame({ seed: 1, config: DEFAULT_CONFIG });
-    while (!s.gameOver && s.moves < 400) {
+    while (!s.gameOver && s.moves < 1500) {
       s = tick(s, 900).state;
       if (s.gameOver) break;
       const hands = findHands(s.board, s.config, 200, s.tokens);

@@ -9,12 +9,15 @@ import { NeighbourRose, TraceDemo } from './TraceDemo';
 import { CardFace, CardSprite } from './CardFace';
 import { vibrate } from './haptics';
 import { loadBest, loadFlag, saveBest, saveFlag } from './storage';
+import { fmt, LANG, LANG_NAMES, LANGS, setLang } from './i18n/lang';
 import { HAND_EXAMPLES, HAND_NAMES, HAND_RULES, STRINGS } from './strings';
 import { BIG_TIER, HAND_TIER, ROYAL_TIER, UI } from './uiConfig';
 import { useGame, type Floater } from './useGame';
 import { DEFAULT_CONFIG } from '../engine/config';
 import { LEADERBOARD, leaderboardEnabled } from '../leaderboard/config';
 import { Leaderboard } from '../leaderboard/Leaderboard';
+import { accountsEnabled, deleteAccount, onProfileSynced, profileChanged } from '../leaderboard/account';
+import { loadPlayer } from '../leaderboard/player';
 import { track } from '../leaderboard/track';
 import { installMode } from './install';
 import { TOURS } from '../engine/tour/levels';
@@ -23,7 +26,7 @@ import { playRun, startRun, tickRun, type TourRun } from '../engine/tour/run';
 import { playSeed } from '../engine/tour/setup';
 import type { Level, Tour } from '../engine/tour/schema';
 import { loadTourProgress, saveTourProgress } from './tour/progressStore';
-import { TOUR_STRINGS } from './tour/strings';
+import { TOUR_STRINGS, tourName } from './tour/strings';
 import { Champion } from './tour/Champion';
 import { GoalsBar, isChampion, LevelIntro, levelNumber, TourMap, TourResult } from './tour/TourUI';
 import type { GameDriver } from './useGame';
@@ -42,14 +45,12 @@ interface Trace {
   readonly points: number;
 }
 
-const fmt = (v: number) => v.toLocaleString('ca');
-
 export function App() {
   const [best, setBest] = useState(() => loadBest(UI.bestKey));
   const [newBest, setNewBest] = useState(false);
   const [sound, setSound] = useState(() => loadFlag(UI.soundKey, true));
   const [mode, setMode] = useState<Mode>('free');
-  const [sheet, setSheet] = useState<'help' | 'ranking' | 'tables' | null>(null);
+  const [sheet, setSheet] = useState<'help' | 'ranking' | 'tables' | 'account' | null>(null);
   const [trace, setTrace] = useState<Trace>({ length: 0, status: null, hand: null, points: 0 });
   const modeRef = useRef<Mode>('free');
   // Poker Tour: the map, the level picked, the run being played and the saved progress.
@@ -85,6 +86,7 @@ export function App() {
         setTourProgress((p) => {
           const next = recordResult(p, run.level.id, run.stars, run.game.score);
           saveTourProgress(next);
+          profileChanged();
           setTourNewTour(newlyOpened(TOURS, p, next)[0] ?? null);
           setJustChampion(!isChampion(TOURS, p) && isChampion(TOURS, next));
           return next;
@@ -99,6 +101,7 @@ export function App() {
     setBest((b) => {
       if (s.score > b) {
         saveBest(UI.bestKey, s.score);
+        profileChanged();
         setNewBest(true);
         window.setTimeout(() => playSound('newBest'), 500);
         return s.score;
@@ -113,6 +116,11 @@ export function App() {
   const { state, frame, phase, paused } = game;
 
   useEffect(() => setMuted(!sound), [sound]);
+  // The account brought a better record or Tour levels from the server.
+  useEffect(() => onProfileSynced(() => {
+    setBest(loadBest(UI.bestKey));
+    setTourProgress(loadTourProgress());
+  }), []);
 
   useEffect(() => {
     track('visit', undefined, { standalone: installMode() === null, ...(lobbyCode ? { table: lobbyCode } : {}) });
@@ -251,7 +259,7 @@ export function App() {
   const nextOpen = following && isUnlocked(TOURS, tourProgress, following.id) ? following : null;
   const followingTour = following ? TOURS.find((t) => t.levels.includes(following)) : undefined;
   const nextLocked = following && !nextOpen && followingTour && starsMissing(followingTour, tourProgress) > 0
-    ? { tour: followingTour.name, missing: starsMissing(followingTour, tourProgress) }
+    ? { tour: tourName(followingTour), missing: starsMissing(followingTour, tourProgress) }
     : null;
 
   // The last level of the Tour: after the stars land, the champion's show starts by itself.
@@ -407,6 +415,7 @@ export function App() {
           onTour={openTour}
           onRanking={leaderboardEnabled() ? () => { track('ranking_view'); setSheet('ranking'); } : undefined}
           onTables={leaderboardEnabled() ? () => setSheet('tables') : undefined}
+          onAccount={accountsEnabled() ? () => setSheet('account') : undefined}
           tourInfo={tourMenuInfo(tourProgress)}
         />
       )}
@@ -417,7 +426,7 @@ export function App() {
           number={levelNumber(TOURS, tourRun.level.id)}
           nextLevel={nextOpen}
           needStars={nextLocked}
-          newTour={tourNewTour?.name ?? null}
+          newTour={tourNewTour ? tourName(tourNewTour) : null}
           champion={justChampion}
           onChampion={() => setChampion('intro')}
           onNext={() => {
@@ -459,7 +468,7 @@ export function App() {
           stars={totalStars(tourProgress)}
           maxStars={allLevels(TOURS).length * 3}
           levels={allLevels(TOURS).length}
-          cities={TOURS.map((t) => t.name)}
+          cities={TOURS.map(tourName)}
           intro={champion === 'intro'}
           onShared={() => track('share', totalStars(tourProgress), { mode: 'tour', kind: 'champion' })}
           onClose={() => {
@@ -510,6 +519,7 @@ export function App() {
 
       {sheet === 'help' && <Help auto={pendingStart.current !== null} onClose={closeHelp} />}
       {sheet === 'ranking' && <RankingSheet onClose={() => setSheet(null)} />}
+      {sheet === 'account' && <AccountSheet onClose={() => setSheet(null)} />}
       {sheet === 'tables' && <MyTablesSheet onOpen={(code) => { setSheet(null); setLobbyCode(code); }} onClose={() => setSheet(null)} />}
     </div>
   );
@@ -666,6 +676,8 @@ interface MenuProps {
   onTour: () => void;
   onRanking?: () => void;
   onTables?: () => void;
+  /** The account sheet (app only). */
+  onAccount?: () => void;
   /** The Poker Tour button's second line: where the player is, or what it is. */
   tourInfo: string;
 }
@@ -692,10 +704,11 @@ const SoundIcon = ({ on }: { on: boolean }) => (
   </svg>
 );
 
-function Menu({ best, sound, onPlay, onTable, onHelp, onSound, onTour, onRanking, onTables, tourInfo }: MenuProps) {
+function Menu({ best, sound, onPlay, onTable, onHelp, onSound, onTour, onRanking, onTables, onAccount, tourInfo }: MenuProps) {
   const cards = useMemo(() => parseCards('TH JH QH KH AH'), []);
   const M = STRINGS.menu;
-  // Two levels: a game, a table and the Tour first; tables and ranking at the bottom, between two quiet icons.
+  // Play is the one big button; a table and the Tour are two quiet chips under it; tables and ranking at
+  // the bottom, between two quiet icons.
   return (
     <div className="overlay menu">
       <div className="menu-inner">
@@ -704,17 +717,11 @@ function Menu({ best, sound, onPlay, onTable, onHelp, onSound, onTour, onRanking
         </div>
         <h1 className="logo">POKER<br /><span>LUNCH</span></h1>
         <p className="tagline">{STRINGS.tagline}</p>
-        <button className="btn primary big" type="button" onClick={onPlay}>{STRINGS.play}</button>
-        {onTable && (
-          <button className="btn table-hero" type="button" onClick={onTable}>
-            <span className="table-hero-title">🃏 {TABLE_STRINGS.menuButton}</span>
-            <small>{TABLE_STRINGS.menuInfo}</small>
-          </button>
-        )}
-        <button className="btn tour-hero" type="button" onClick={onTour}>
-          <span className="tour-hero-title">🏆 {TOUR_STRINGS.menuButton}</span>
-          <small>{tourInfo}</small>
-        </button>
+        <button className="btn primary big menu-play" type="button" onClick={onPlay}>{STRINGS.play}</button>
+        <div className="menu-modes">
+          {onTable && <button className="menu-mode" type="button" onClick={onTable}><span aria-hidden="true">🃏</span>{TABLE_STRINGS.menuButton}</button>}
+          <button className="menu-mode" type="button" onClick={onTour} title={tourInfo}><span aria-hidden="true">🏆</span>{TOUR_STRINGS.menuButton}</button>
+        </div>
         {best > 0 && <p className="menu-best">{STRINGS.best}: {fmt(best)}</p>}
         <nav className="menu-tools" aria-label={M.more}>
           <button type="button" className="menu-icon" onClick={onHelp} aria-label={M.help} title={M.help}><HelpIcon /></button>
@@ -722,6 +729,54 @@ function Menu({ best, sound, onPlay, onTable, onHelp, onSound, onTour, onRanking
           {onRanking && <button type="button" className="menu-tool" onClick={onRanking}>{M.ranking}</button>}
           <button type="button" className="menu-icon" onClick={onSound} aria-pressed={sound} aria-label={M.sound} title={M.sound}><SoundIcon on={sound} /></button>
         </nav>
+        <div className="menu-langs" role="group" aria-label={M.language}>
+          {LANGS.map((l) => (
+            <button key={l} type="button" lang={l} aria-pressed={l === LANG} title={LANG_NAMES[l]} onClick={() => { if (l !== LANG) setLang(l); }}>
+              {l.toUpperCase()}
+            </button>
+          ))}
+        </div>
+        {onAccount && <button type="button" className="menu-account" onClick={onAccount}>{STRINGS.account.open}</button>}
+      </div>
+    </div>
+  );
+}
+
+/** The anonymous account: what it keeps, and deleting it (the stores ask for that inside the app). */
+function AccountSheet({ onClose }: { onClose: () => void }) {
+  const T = STRINGS.account;
+  const [step, setStep] = useState<'info' | 'ask' | 'busy' | 'error'>('info');
+  const name = loadPlayer()?.name;
+  const remove = async () => {
+    setStep('busy');
+    try {
+      await deleteAccount();
+      window.location.reload();
+    } catch {
+      setStep('error');
+    }
+  };
+  return (
+    <div className="overlay dim" onClick={step === 'busy' ? undefined : onClose}>
+      <div className="sheet account-sheet" role="dialog" aria-labelledby="account-title" onClick={(e) => e.stopPropagation()}>
+        <h2 id="account-title">{step === 'info' ? T.title : T.deleteTitle}</h2>
+        {step === 'info' && (
+          <>
+            <p className="account-name">{name ? T.name(name) : T.noName}</p>
+            <p>{T.body}</p>
+            <button className="btn primary" type="button" onClick={onClose}>{STRINGS.close}</button>
+            <button className="btn ghost danger" type="button" onClick={() => setStep('ask')}>{T.delete}</button>
+          </>
+        )}
+        {step !== 'info' && (
+          <>
+            <p>{step === 'error' ? T.deleteError : T.deleteBody}</p>
+            <button className="btn primary" type="button" disabled={step === 'busy'} onClick={() => setStep('info')}>{T.keep}</button>
+            <button className="btn ghost danger" type="button" disabled={step === 'busy'} onClick={() => void remove()}>
+              {step === 'busy' ? T.deleting : T.deleteYes}
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

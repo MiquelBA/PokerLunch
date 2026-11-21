@@ -3,7 +3,10 @@
 import { memo } from 'react';
 import type { CardSpec } from '../engine/types';
 import sprite from './cards/cards.svg?raw';
+import { STRINGS } from './strings';
 import { SUIT_SYMBOLS } from './uiConfig';
+
+const L = STRINGS.cardLabels;
 
 const LABELS: Record<number, string> = { 11: 'J', 12: 'Q', 13: 'K', 14: 'A' };
 
@@ -20,7 +23,7 @@ export const CardFace = memo(function CardFace({ card, className = '' }: { card:
   // Poker Tour: a block is a stack of casino chips, not a card.
   if (card.block) {
     return (
-      <div className={`block-cell hp-${card.block} ${className}`} role="img" aria-label={card.block > 1 ? 'Bloc de pedra' : 'Bloc'}>
+      <div className={`block-cell hp-${card.block} ${className}`} role="img" aria-label={card.block > 1 ? L.stoneBlock : L.block}>
         <i /><i /><i />
       </div>
     );
@@ -28,14 +31,14 @@ export const CardFace = memo(function CardFace({ card, className = '' }: { card:
   // Fog: the card lies face down under a drifting mist.
   if (card.fog) {
     return (
-      <div className={`fog-cell ${className}`} role="img" aria-label="Carta amb boira">
+      <div className={`fog-cell ${className}`} role="img" aria-label={L.fog}>
         <CardBack />
         <span className="mist" aria-hidden="true"><i /><i /></span>
       </div>
     );
   }
   const id = card.joker ? 'pl-joker' : `pl-${card.suit}-${card.rank}`;
-  const label = `${card.joker ? 'Joker' : `${rankLabel(card.rank)}${SUIT_SYMBOLS[card.suit]}`}${card.ice ? ' (glaçada)' : ''}${card.bomb ? ' (bomba)' : ''}${card.chain ? ' (encadenada)' : ''}`;
+  const label = `${card.joker ? L.joker : `${rankLabel(card.rank)}${SUIT_SYMBOLS[card.suit]}`}${card.ice ? L.ice : ''}${card.bomb ? L.bomb : ''}${card.chain ? L.chain : ''}`;
   return (
     <div className={`card ${card.golden ? 'golden' : ''} ${card.joker ? 'joker' : ''} ${className}`} role="img" aria-label={label}>
       <svg>

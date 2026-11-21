@@ -11,6 +11,15 @@ Per fer servir un projecte propi, crea'l, executa-hi els tres SQL d'Orca Lunch i
 
 `banned-words.txt` és una còpia de la d'Orca Lunch: si s'hi afegeixen paraules, cal fer-ho també a la base de dades.
 
+## Comptes (només a l'app)
+
+L'app fa un compte anònim de Supabase Auth la primera vegada que s'obre (sense correu ni contrasenya). L'id del compte passa a ser l'id del jugador (rànquing, taules i estadístiques), i el perfil (nom, rècord i progrés del Poker Tour) es guarda a `poker_profiles`, que només pot llegir i canviar el mateix usuari. `poker_delete_account()` esborra el compte i tot el que ha fet (puntuacions, seients, estadístiques i comentaris; a les taules que va obrir el nom queda com a «—»). Per posar-ho en marxa, un sol cop:
+
+1. Authentication → Sign In / Providers → activa **Allow anonymous sign-ins**.
+2. Executa [`accounts.sql`](accounts.sql) al SQL editor. Només afegeix coses noves i es pot tornar a executar.
+
+A la web els comptes estan apagats; per provar-los al navegador, obre la pàgina amb `?accounts=1`.
+
 ## Estadístiques i comentaris
 
 El joc també escriu a les taules `events` (visites, partides, comparticions, instal·lacions, 👍👎) i `feedback` (comentaris) de l'Orca Lunch. Cada fila del Poker porta `meta.game = 'poker'`; les de l'Orca no en porten. Per exemple, al SQL editor de Supabase:

@@ -445,11 +445,14 @@ export function applyMove(state: GameState, move: Move): MoveResult {
     powerEvent(gilded);
   }
 
-  // Time bonuses, the hand's and the time power's, share one cap per game: uncapped, a fast player
-  // could gain more time than they spend (the clock stops while a move plays) and never finish.
+  // Time bonuses, the hand's and the time power's, shrink as the game goes on and share one cap per
+  // game: otherwise a fast player could gain more time than they spend (the clock stops while a move
+  // plays) and never finish.
   let { timeLimitMs, timeBonusMs } = state;
+  const fade = config.timeBonusFade;
+  const fadeMs = fade && at > fade.afterMs ? Math.ceil((at - fade.afterMs) / fade.everyMs) * fade.lessMs : 0;
   const addTime = (wanted: number) => {
-    const ms = Math.min(wanted, config.maxTimeBonusMs - timeBonusMs);
+    const ms = Math.min(wanted - fadeMs, config.maxTimeBonusMs - timeBonusMs);
     if (config.mode !== 'time' || ms <= 0) return;
     timeBonusMs += ms;
     timeLimitMs += ms;
