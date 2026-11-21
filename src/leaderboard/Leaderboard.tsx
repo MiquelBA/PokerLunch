@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { fmt } from '../ui/i18n/lang';
 import { STRINGS } from '../ui/strings';
 import { fetchRank, fetchTop, RejectedError, submitScore, type RankedScore } from './api';
+import { profileChanged } from './account';
 import { LEADERBOARD } from './config';
 import { nameIsClean } from './names';
 import { cleanName, loadPlayer, savePlayer, type Player } from './player';
@@ -60,6 +61,7 @@ export function Leaderboard({ ranking, score }: { ranking: string; score?: numbe
     if (!cleanName(draft)) return;
     if (!nameIsClean(draft)) { setNameRefused(true); return; }
     const saved = savePlayer(draft, player);
+    profileChanged();
     setPlayer(saved);
     setEditing(false);
     void sync(saved);

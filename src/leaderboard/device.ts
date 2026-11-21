@@ -25,3 +25,13 @@ function newId(): string {
     return 'xxxxxxxx-xxxx-4xxx-8xxx-xxxxxxxxxxxx'.replace(/x/g, () => Math.floor(Math.random() * 16).toString(16));
   }
 }
+
+/** In the app the account's id takes this phone's id over (src/leaderboard/account.ts). */
+export function setDeviceId(id: string): void {
+  cached = id;
+  try {
+    localStorage.setItem(KEY, id);
+  } catch {
+    // Storage unavailable: it lasts this visit.
+  }
+}

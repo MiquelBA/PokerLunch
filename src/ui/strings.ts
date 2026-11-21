@@ -80,6 +80,21 @@ const STRINGS_CA = {
   playAgain: 'Torna a jugar',
   howTo: 'Com es juga',
   /** The small buttons at the bottom of the start screen. */
+  /** The anonymous account (app only). */
+  account: {
+    open: 'El meu compte',
+    title: 'El teu compte',
+    name: (name: string) => `Jugues com a ${name}`,
+    noName: 'Encara no has triat cap nom (te’l demanarem al rànquing o a una taula).',
+    body: 'El teu rècord, el progrés del Poker Tour i el teu nom es guarden al núvol amb un compte anònim: no et demanem correu ni cap altra dada.',
+    delete: 'Esborra el meu compte',
+    deleteTitle: 'Esborrar el compte?',
+    deleteBody: 'S’esborraran el compte, el rècord, el progrés del Tour, les teves puntuacions del rànquing i els teus intents a les taules. No es pot desfer.',
+    deleteYes: 'Sí, esborra-ho tot',
+    deleting: 'Esborrant…',
+    keep: 'No, el mantinc',
+    deleteError: 'No s’ha pogut esborrar. Comprova la connexió i torna-ho a provar.',
+  },
   menu: { more: 'Més opcions', help: 'Com es juga', sound: 'So', ranking: 'Rànquing', tables: 'Les meves taules', feedback: 'Opina', install: 'Instal·la', language: 'Idioma' },
   score: 'Punts',
   best: 'Rècord',

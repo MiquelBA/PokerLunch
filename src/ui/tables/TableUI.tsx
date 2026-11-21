@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { parseCards } from '../../engine/notation';
 import type { Move } from '../../engine/types';
 import { RejectedError } from '../../leaderboard/api';
+import { profileChanged } from '../../leaderboard/account';
 import { LEADERBOARD } from '../../leaderboard/config';
 import { deviceId } from '../../leaderboard/device';
 import { nameIsClean } from '../../leaderboard/names';
@@ -109,6 +110,7 @@ function NameForm({ onSaved }: { onSaved: (player: Player) => void }) {
     if (!cleanName(draft)) return;
     if (!nameIsClean(draft)) { setRefused(true); return; }
     onSaved(savePlayer(draft, loadPlayer()));
+    profileChanged();
   };
   return (
     <form className="lb-name" onSubmit={save}>
